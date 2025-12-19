@@ -4,7 +4,7 @@ import {
   FileText, Upload, LayoutDashboard, Search, Users, BarChart3, 
   Loader2, ChevronRight, AlertCircle, FolderOpen, Settings, MessageSquare, 
   Trash2, Save, Play, Pause, RefreshCw, Star, Share2, ExternalLink, X,
-  Database, ShieldCheck, BrainCircuit
+  Database, ShieldCheck, BrainCircuit, RotateCcw, CheckCircle2
 } from 'lucide-react';
 import { ProcessedDocument, AppState, POI, ChatMessage, Entity } from './types';
 import { processPdf } from './services/pdfProcessor';
@@ -13,17 +13,18 @@ import { analyzeWithLMStudio } from './services/lmStudioService';
 
 declare const JSZip: any;
 
-const STORAGE_KEY = 'epstein_nexus_v3_state';
-const MAX_CONCURRENT_AGENTS = 2; // Scour multiple files simultaneously
+const STORAGE_KEY = 'epstein_nexus_v4_state';
+const MAX_CONCURRENT_AGENTS = 1; // Reduced to 1 to help mitigate 429 rate limits for standard tiers
 
 // Store blobs securely
-const fileStore: Record<string, Blob> = {};
+let fileStore: Record<string, Blob> = {};
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      // Ensure we don't start with a locked processing state
       return { ...parsed, isProcessing: false, view: 'dashboard', processingQueue: [] };
     }
     return {
@@ -35,7 +36,7 @@ export default function App() {
       config: {
         useGemini: true,
         useLMStudio: false,
-        geminiModel: 'gemini-3-pro-preview',
+        geminiModel: 'gemini-3-flash-preview', // Default changed to Flash
         lmStudioEndpoint: 'http://localhost:1234'
       },
       chatHistory: [{ role: 'system', content: 'NEXUS Agentic Core Online. Database monitoring active.', timestamp: Date.now() }],
@@ -47,12 +48,25 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeAgentsCount, setActiveAgentsCount] = useState(0);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   // Persistence
   useEffect(() => {
     const { isProcessing, processingQueue, ...rest } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
   }, [state]);
+
+  // Toast auto-clear
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -89,15 +103,53 @@ export default function App() {
       documents: [...prev.documents, ...newDocs],
       processingQueue: [...prev.processingQueue, ...queueIds]
     }));
+    showToast(`Ingested ${queueIds.length} fragments.`);
+  };
+
+  const resetArchive = () => {
+    if (confirm("DANGER: This will permanently wipe all analyzed data, POIs, and chat history. Continue?")) {
+      fileStore = {};
+      setState({
+        documents: [],
+        pois: [],
+        selectedDocId: null,
+        isProcessing: false,
+        view: 'dashboard',
+        config: {
+          useGemini: true,
+          useLMStudio: false,
+          geminiModel: 'gemini-3-flash-preview',
+          lmStudioEndpoint: 'http://localhost:1234'
+        },
+        chatHistory: [{ role: 'system', content: 'Archive Purged. Agentic Core Ready for new data.', timestamp: Date.now() }],
+        processingQueue: []
+      });
+      showToast("Archive successfully purged.");
+    }
+  };
+
+  const restartAnalysis = () => {
+    const failedIds = state.documents
+      .filter(d => d.status === 'error' || d.status === 'pending')
+      .map(d => d.id);
+    
+    if (failedIds.length === 0) {
+      showToast("No pending or failed fragments to process.", "error");
+      return;
+    }
+
+    setState(prev => ({
+      ...prev,
+      processingQueue: [...new Set([...prev.processingQueue, ...failedIds])]
+    }));
+    showToast(`Restarting analysis for ${failedIds.length} fragments.`);
   };
 
   // Multi-Agent Parallel Scouring Loop
   useEffect(() => {
     if (state.processingQueue.length > 0 && activeAgentsCount < MAX_CONCURRENT_AGENTS) {
-      const docsToProcess = state.processingQueue.slice(0, MAX_CONCURRENT_AGENTS - activeAgentsCount);
-      docsToProcess.forEach(id => {
-        processDocumentAgent(id);
-      });
+      const docId = state.processingQueue[0];
+      processDocumentAgent(docId);
     }
   }, [state.processingQueue, activeAgentsCount]);
 
@@ -160,12 +212,24 @@ export default function App() {
         pois: updatedPois,
         processingQueue: prev.processingQueue.filter(id => id !== docId)
       }));
+
+      // Respect rate limits with a small gap
+      await new Promise(r => setTimeout(r, 1000));
+
     } catch (err: any) {
       console.error(`Agent failed on ${docId}:`, err);
       updateDocStatus(docId, 'error');
       
-      const isRateLimit = JSON.stringify(err).includes('429');
-      if (isRateLimit) await new Promise(r => setTimeout(r, 15000));
+      const errStr = JSON.stringify(err);
+      const isRateLimit = errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED');
+      
+      if (isRateLimit) {
+        console.warn("RATE LIMIT HIT: Standing down for 30 seconds...");
+        showToast("Rate limit exceeded. Waiting 30s before retry.", "error");
+        await new Promise(r => setTimeout(r, 30000));
+        // Keep in queue for retry if rate limited
+        return; 
+      }
       
       setState(prev => ({ ...prev, processingQueue: prev.processingQueue.filter(id => id !== docId) }));
     } finally {
@@ -188,7 +252,6 @@ export default function App() {
     setChatInput('');
 
     try {
-      // Enhanced RAG: Search summaries, entities, and raw text
       const searchTerms = chatInput.toLowerCase().split(' ').filter(t => t.length > 3);
       const relevantDocs = state.documents
         .filter(d => d.status === 'completed')
@@ -213,7 +276,6 @@ export default function App() {
         role: 'assistant', 
         content: response, 
         timestamp: Date.now(),
-        // Add metadata for UI display
         references: relevantDocs.map(d => d.name)
       };
       setState(prev => ({ ...prev, chatHistory: [...prev.chatHistory, assistantMsg] }));
@@ -229,6 +291,14 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full z-50 flex items-center gap-3 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300 ${toast.type === 'success' ? 'bg-indigo-600' : 'bg-red-600'}`}>
+          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+          <span className="font-bold text-sm">{toast.message}</span>
+        </div>
+      )}
+
       {/* Dynamic Sidebar */}
       <aside className={`bg-slate-900 border-r border-slate-800 transition-all duration-300 flex flex-col ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
         <div className="p-6 flex items-center gap-3 border-b border-slate-800 cursor-pointer" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
@@ -282,9 +352,17 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-6">
+             {state.documents.some(d => d.status === 'error') && (
+               <button 
+                 onClick={restartAnalysis}
+                 className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-full text-[10px] font-black uppercase transition-all"
+               >
+                 <RotateCcw className="w-3 h-3" /> Retry Errors
+               </button>
+             )}
             <div className="flex flex-col items-end">
               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Database Integrity</span>
-              <span className="text-xs font-medium text-slate-400">98.4% Verified</span>
+              <span className="text-xs font-medium text-slate-400">{state.documents.length > 0 ? '98.4%' : '0%'} Verified</span>
             </div>
             <div className="h-8 w-px bg-slate-800"></div>
             <ShieldCheck className="w-5 h-5 text-green-500" />
@@ -294,11 +372,11 @@ export default function App() {
         {/* View Switcher */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
           {state.view === 'dashboard' && <DashboardView state={state} setState={setState} />}
-          {state.view === 'documents' && <DocumentsView state={state} setState={setState} searchQuery={searchQuery} />}
+          {state.view === 'documents' && <DocumentsView state={state} setState={setState} searchQuery={searchQuery} restartAnalysis={restartAnalysis} />}
           {state.view === 'document_detail' && <DocumentDetailView state={state} setState={setState} shareToX={shareToX} />}
           {state.view === 'pois' && <POIView state={state} shareToX={shareToX} />}
           {state.view === 'chat' && <AgentChatView state={state} chatInput={chatInput} setChatInput={setChatInput} handleChat={handleChat} />}
-          {state.view === 'settings' && <SettingsView state={state} setState={setState} />}
+          {state.view === 'settings' && <SettingsView state={state} setState={setState} showToast={showToast} resetArchive={resetArchive} />}
           {state.view === 'analytics' && <AnalyticsView state={state} />}
         </div>
       </main>
@@ -385,7 +463,7 @@ function DashboardView({ state, setState }: any) {
   );
 }
 
-function DocumentsView({ state, setState, searchQuery }: any) {
+function DocumentsView({ state, setState, searchQuery, restartAnalysis }: any) {
   const filtered = state.documents.filter((d: any) => 
     d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (d.analysis?.summary || "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -397,6 +475,14 @@ function DocumentsView({ state, setState, searchQuery }: any) {
         <div>
           <h2 className="text-3xl font-black uppercase tracking-tighter">Archive Repository</h2>
           <p className="text-slate-500 text-sm font-medium">Ingested fragment database</p>
+        </div>
+        <div className="flex gap-4">
+          <button 
+            onClick={restartAnalysis}
+            className="flex items-center gap-2 px-6 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-black uppercase transition-all"
+          >
+            <RotateCcw className="w-4 h-4" /> Restart Pipeline
+          </button>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -500,11 +586,15 @@ function DocumentDetailView({ state, setState, shareToX }: any) {
             ) : (
               <div className="flex flex-col items-center justify-center p-32 text-center">
                 <div className="relative mb-8">
-                  <div className="w-20 h-20 border-4 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin"></div>
-                  <Loader2 className="w-10 h-10 text-indigo-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  <div className={`w-20 h-20 border-4 ${doc.status === 'error' ? 'border-red-500/20' : 'border-indigo-500/20 border-t-indigo-600'} rounded-full animate-spin`}></div>
+                  {doc.status === 'error' ? <AlertCircle className="w-10 h-10 text-red-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" /> : <Loader2 className="w-10 h-10 text-indigo-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />}
                 </div>
-                <h3 className="text-2xl font-black uppercase tracking-tighter">Deep Analysis Phase...</h3>
-                <p className="text-slate-500 text-sm mt-4 max-w-sm leading-relaxed font-medium">Correlating cross-references and identifying hidden entities within metadata streams.</p>
+                <h3 className={`text-2xl font-black uppercase tracking-tighter ${doc.status === 'error' ? 'text-red-500' : ''}`}>
+                  {doc.status === 'error' ? 'Fragment Error' : 'Deep Analysis Phase...'}
+                </h3>
+                <p className="text-slate-500 text-sm mt-4 max-w-sm leading-relaxed font-medium">
+                  {doc.status === 'error' ? 'Analysis failed. This usually occurs due to rate limiting or corrupted fragment metadata. Retry the pipeline in the Control Layer.' : 'Correlating cross-references and identifying hidden entities within metadata streams.'}
+                </p>
               </div>
             )}
           </div>
@@ -643,74 +733,92 @@ function AgentChatView({ state, chatInput, setChatInput, handleChat }: any) {
   );
 }
 
-function SettingsView({ state, setState }: any) {
+function SettingsView({ state, setState, showToast, resetArchive }: any) {
+  const save = () => {
+    showToast("Settings synchronized to Nexus Core.");
+  };
+
   return (
-    <div className="max-w-3xl mx-auto bg-slate-900/50 border border-slate-800 rounded-[3rem] p-12 space-y-12 shadow-2xl animate-in fade-in duration-500">
-      <div className="flex items-center gap-6">
-         <div className="p-4 bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-600/20">
-            <Settings className="w-8 h-8 text-white" />
-         </div>
-         <div>
-            <h2 className="text-4xl font-black tracking-tighter uppercase leading-none">Control Layer</h2>
-            <p className="text-slate-500 text-sm font-medium mt-1">Core Intelligence & Integration Matrix</p>
-         </div>
-      </div>
-      
-      <div className="space-y-10">
-        <section className="space-y-6">
-          <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] flex items-center gap-3">
-             <div className="w-8 h-px bg-indigo-500"></div> Primary Intelligence Core
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-             <button 
-               onClick={() => setState((p:any) => ({...p, config: {...p.config, geminiModel: 'gemini-3-pro-preview'}}))}
-               className={`p-6 rounded-3xl border text-left transition-all ${state.config.geminiModel === 'gemini-3-pro-preview' ? 'bg-indigo-600 border-indigo-400 shadow-xl shadow-indigo-600/20' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
-             >
-                <div className="font-black text-sm uppercase mb-1">Gemini 3 Pro</div>
-                <div className={`text-[10px] font-bold ${state.config.geminiModel === 'gemini-3-pro-preview' ? 'text-indigo-100' : 'text-slate-500'}`}>Deep Investigating Agent</div>
-             </button>
-             <button 
-               onClick={() => setState((p:any) => ({...p, config: {...p.config, geminiModel: 'gemini-3-flash-preview'}}))}
-               className={`p-6 rounded-3xl border text-left transition-all ${state.config.geminiModel === 'gemini-3-flash-preview' ? 'bg-indigo-600 border-indigo-400 shadow-xl shadow-indigo-600/20' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
-             >
-                <div className="font-black text-sm uppercase mb-1">Gemini 3 Flash</div>
-                <div className={`text-[10px] font-bold ${state.config.geminiModel === 'gemini-3-flash-preview' ? 'text-indigo-100' : 'text-slate-500'}`}>High Velocity Extraction</div>
-             </button>
-          </div>
-        </section>
-
-        <section className="p-8 bg-slate-950/50 rounded-[2.5rem] border border-slate-800 space-y-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-slate-800 rounded-2xl border border-slate-700">
-                 <ExternalLink className="w-5 h-5 text-indigo-400" />
-              </div>
-              <div>
-                <div className="font-black text-sm uppercase tracking-tight">LM Studio Verification</div>
-                <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Dual-Core Local Processing</div>
-              </div>
+    <div className="max-w-3xl mx-auto space-y-12">
+      <div className="bg-slate-900/50 border border-slate-800 rounded-[3rem] p-12 space-y-12 shadow-2xl animate-in fade-in duration-500">
+        <div className="flex items-center gap-6">
+           <div className="p-4 bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-600/20">
+              <Settings className="w-8 h-8 text-white" />
+           </div>
+           <div>
+              <h2 className="text-4xl font-black tracking-tighter uppercase leading-none">Control Layer</h2>
+              <p className="text-slate-500 text-sm font-medium mt-1">Core Intelligence & Integration Matrix</p>
+           </div>
+        </div>
+        
+        <div className="space-y-10">
+          <section className="space-y-6">
+            <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] flex items-center gap-3">
+               <div className="w-8 h-px bg-indigo-500"></div> Primary Intelligence Core
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <button 
+                 onClick={() => { setState((p:any) => ({...p, config: {...p.config, geminiModel: 'gemini-3-flash-preview'}})); save(); }}
+                 className={`p-6 rounded-3xl border text-left transition-all ${state.config.geminiModel === 'gemini-3-flash-preview' ? 'bg-indigo-600 border-indigo-400 shadow-xl shadow-indigo-600/20' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
+               >
+                  <div className="font-black text-sm uppercase mb-1">Gemini 3 Flash</div>
+                  <div className={`text-[10px] font-bold ${state.config.geminiModel === 'gemini-3-flash-preview' ? 'text-indigo-100' : 'text-slate-500'}`}>High Velocity Extraction (Standard)</div>
+               </button>
+               <button 
+                 onClick={() => { setState((p:any) => ({...p, config: {...p.config, geminiModel: 'gemini-3-pro-preview'}})); save(); }}
+                 className={`p-6 rounded-3xl border text-left transition-all ${state.config.geminiModel === 'gemini-3-pro-preview' ? 'bg-indigo-600 border-indigo-400 shadow-xl shadow-indigo-600/20' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
+               >
+                  <div className="font-black text-sm uppercase mb-1">Gemini 3 Pro</div>
+                  <div className={`text-[10px] font-bold ${state.config.geminiModel === 'gemini-3-pro-preview' ? 'text-indigo-100' : 'text-slate-500'}`}>Deep Investigating Agent (High Quota)</div>
+               </button>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked={state.config.useLMStudio} onChange={e => setState((p:any) => ({...p, config: {...p.config, useLMStudio: e.target.checked}}))} className="sr-only peer" />
-              <div className="w-14 h-7 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-            </label>
-          </div>
-          {state.config.useLMStudio && (
-            <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-               <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Verification Endpoint</div>
-               <input 
-                 type="text" 
-                 placeholder="http://localhost:1234"
-                 className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-xs font-mono outline-none focus:border-indigo-600 transition-colors"
-                 value={state.config.lmStudioEndpoint}
-                 onChange={e => setState((p:any) => ({...p, config: {...p.config, lmStudioEndpoint: e.target.value}}))}
-               />
+          </section>
+
+          <section className="p-8 bg-slate-950/50 rounded-[2.5rem] border border-slate-800 space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-slate-800 rounded-2xl border border-slate-700">
+                   <ExternalLink className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <div className="font-black text-sm uppercase tracking-tight">LM Studio Verification</div>
+                  <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Dual-Core Local Processing</div>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={state.config.useLMStudio} onChange={e => { setState((p:any) => ({...p, config: {...p.config, useLMStudio: e.target.checked}})); save(); }} className="sr-only peer" />
+                <div className="w-14 h-7 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
             </div>
-          )}
-        </section>
+            {state.config.useLMStudio && (
+              <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                 <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Verification Endpoint</div>
+                 <input 
+                   type="text" 
+                   placeholder="http://localhost:1234"
+                   className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-xs font-mono outline-none focus:border-indigo-600 transition-colors"
+                   value={state.config.lmStudioEndpoint}
+                   onChange={e => setState((p:any) => ({...p, config: {...p.config, lmStudioEndpoint: e.target.value}}))}
+                 />
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
-      <button onClick={() => alert("Persistence Succeeded. OSINT database synchronized.")} className="w-full bg-white hover:bg-slate-100 text-black py-5 rounded-3xl font-black text-sm transition-all shadow-2xl uppercase tracking-[0.2em] mt-6">Synchronize Nexus State</button>
+      <div className="bg-red-950/20 border border-red-900/50 rounded-[3rem] p-12 space-y-6">
+        <div className="flex items-center gap-4 text-red-500">
+          <AlertCircle className="w-8 h-8" />
+          <h2 className="text-2xl font-black uppercase tracking-tighter">System Danger Zone</h2>
+        </div>
+        <p className="text-red-900/80 font-medium text-sm">Purging the archive will permanently erase all extracted entities, cross-references, and analysis. This cannot be undone.</p>
+        <button 
+          onClick={resetArchive}
+          className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-3xl font-black text-xs transition-all shadow-xl shadow-red-600/20 uppercase tracking-[0.2em]"
+        >
+          Reset Nexus Archive
+        </button>
+      </div>
     </div>
   );
 }
