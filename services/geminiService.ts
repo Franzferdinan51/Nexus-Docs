@@ -2,87 +2,97 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DocumentAnalysis } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-export async function analyzeDocument(text: string, images: string[]): Promise<DocumentAnalysis> {
-  const model = "gemini-3-pro-preview";
+export async function analyzeDocument(text: string, images: string[], modelName: string = 'gemini-3-pro-preview'): Promise<DocumentAnalysis> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
-    Analyze the following legal document content related to the Epstein case files.
-    Provide a comprehensive breakdown including:
-    1. A concise summary of the document's purpose.
-    2. A list of all individuals (Entities) mentioned, their roles (if identifiable), and the context of their mention.
-    3. Key insights or revelations from the text.
-    4. Sentiment of the document.
-    5. The approximate date of the document if found.
+    TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT
     
-    Document Text:
-    ${text.substring(0, 30000)} // Truncate text to stay within safe prompt limits for quick response
+    1. SUMMARY: Provide a precise summary.
+    2. ENTITIES: List EVERY person. Flag "isFamous: true" for high-profile individuals (political figures, celebrities, billionaires).
+    3. POIs: Specifically list any "People of Interest" found.
+    4. KEY INSIGHTS: Direct revelations.
+    5. IMAGES: If image data is provided, describe what is seen (e.g., "Photograph of person X", "Handwritten ledger").
+    
+    DOCUMENT CONTENT:
+    ${text.substring(0, 40000)}
   `;
 
-  // Include images if available
   const contents = {
     parts: [
       { text: prompt },
-      ...images.slice(0, 3).map(img => ({
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: img
-        }
+      ...images.slice(0, 5).map(img => ({
+        inlineData: { mimeType: "image/jpeg", data: img }
       }))
     ]
   };
 
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            entities: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  role: { type: Type.STRING },
-                  context: { type: Type.STRING }
-                },
-                required: ["name", "role", "context"]
-              }
-            },
-            keyInsights: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            sentiment: { type: Type.STRING },
-            documentDate: { type: Type.STRING }
-          },
-          required: ["summary", "entities", "keyInsights", "sentiment"]
-        }
-      }
-    });
-
-    return JSON.parse(response.text || '{}');
-  } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    throw error;
-  }
-}
-
-export async function aggregateAnalysis(documents: any[]): Promise<string> {
-  // Logic to summarize findings across multiple documents
-  const model = "gemini-3-flash-preview";
-  const summaries = documents.map(d => d.analysis?.summary).join('\n\n');
-  
   const response = await ai.models.generateContent({
-    model,
-    contents: `Based on these summaries of Epstein-related documents, provide a high-level master report on the connections and recurring themes found:\n\n${summaries}`
+    model: modelName,
+    contents,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING },
+          entities: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                role: { type: Type.STRING },
+                context: { type: Type.STRING },
+                isFamous: { type: Type.BOOLEAN }
+              },
+              required: ["name", "role", "context", "isFamous"]
+            }
+          },
+          keyInsights: { type: Type.ARRAY, items: { type: Type.STRING } },
+          sentiment: { type: Type.STRING },
+          documentDate: { type: Type.STRING },
+          flaggedPOIs: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["summary", "entities", "keyInsights", "sentiment", "flaggedPOIs"]
+      }
+    }
   });
 
-  return response.text || "Unable to generate aggregate analysis.";
+  return JSON.parse(response.text || '{}');
+}
+
+export async function ragChat(query: string, contextDocs: any[], history: any[], modelName: string = 'gemini-3-pro-preview'): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const contextText = contextDocs.length > 0 
+    ? contextDocs.map(d => `SOURCE: ${d.name}\nANALYSIS: ${d.analysis?.summary}\nKEY FINDINGS: ${d.analysis?.keyInsights.join('; ')}\nENTITIES: ${d.analysis?.entities.map((e: any) => e.name).join(', ')}`).join('\n\n---\n\n')
+    : "No direct document matches found in the active database. Answer based on general knowledge but specify that the local archive did not contain specific hits.";
+
+  const historyText = history.slice(-6).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+
+  const prompt = `
+    SYSTEM: You are the NEXUS Investigative Agent. You have access to a repository of Epstein case files. 
+    Your tone is clinical, objective, and thorough. 
+    
+    ARCHIVE CONTEXT (Extracted from user's uploaded files):
+    ${contextText}
+    
+    CHAT HISTORY:
+    ${historyText}
+    
+    TASK: 
+    Use the ARCHIVE CONTEXT as your primary source of truth. If specific names or dates are mentioned in the query, look for them in the context. 
+    If the context provided allows for a definitive answer, provide it and cite the SOURCE name.
+    If you are drawing from general knowledge because the archive is insufficient, explicitly state "Based on external data (not found in current archive)..."
+    
+    USER QUERY: ${query}
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+
+  return response.text || "The agent was unable to synthesize a response.";
 }
