@@ -1,0 +1,5 @@
+{
+  "name": "Epstein Nexus: Document Intelligence",
+  "description": "A sophisticated analytical platform for processing, analyzing, and visualizing complex legal documents. Features automated entity extraction, contextual summaries, and visual relationship mapping using the Gemini 3 Pro model.",
+  "requestFramePermissions": []
+}
