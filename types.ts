@@ -3,12 +3,13 @@ export interface ProcessedDocument {
   id: string;
   name: string;
   type: string;
-  content: string; 
-  images: string[]; 
+  content: string;
+  images: string[];
   analysis?: DocumentAnalysis;
   status: 'pending' | 'processing' | 'completed' | 'error';
   isPOI?: boolean;
   lineage?: string[]; // Tracks which models were used
+  contentBlob?: Blob; // Added for IDB storage reference
 }
 
 export interface Entity {
@@ -48,6 +49,7 @@ export interface ModelConfig {
   openRouterKey: string;
   lmStudioEndpoint: string;
   dualCheckMode: boolean; // Enable cross-verification
+  parallelAnalysis: boolean; // Enable parallel execution
 }
 
 export interface ChatMessage {
@@ -62,7 +64,7 @@ export interface AppState {
   pois: POI[];
   selectedDocId: string | null;
   isProcessing: boolean;
-  view: 'dashboard' | 'documents' | 'analytics' | 'pois' | 'chat' | 'settings';
+  view: 'dashboard' | 'documents' | 'analytics' | 'pois' | 'chat' | 'settings' | 'document_detail';
   config: ModelConfig;
   chatHistory: ChatMessage[];
   processingQueue: string[];
