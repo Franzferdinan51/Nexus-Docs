@@ -8,6 +8,7 @@ export interface ProcessedDocument {
   analysis?: DocumentAnalysis;
   status: 'pending' | 'processing' | 'completed' | 'error';
   isPOI?: boolean;
+  lineage?: string[]; // Tracks which models were used
 }
 
 export interface Entity {
@@ -24,6 +25,7 @@ export interface DocumentAnalysis {
   sentiment: string;
   documentDate?: string;
   flaggedPOIs: string[];
+  processedBy?: string;
 }
 
 export interface POI {
@@ -35,17 +37,23 @@ export interface POI {
 }
 
 export interface ModelConfig {
-  useGemini: boolean;
-  useLMStudio: boolean;
-  geminiModel: 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
+  priority: ('gemini' | 'openrouter' | 'lmstudio')[];
+  enabled: {
+    gemini: boolean;
+    openrouter: boolean;
+    lmstudio: boolean;
+  };
+  geminiModel: string;
+  openRouterModel: string;
+  openRouterKey: string;
   lmStudioEndpoint: string;
+  dualCheckMode: boolean; // Enable cross-verification
 }
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
-  // Optional list of source document names referenced in the response
   references?: string[];
 }
 
