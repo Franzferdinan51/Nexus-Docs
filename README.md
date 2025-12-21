@@ -24,8 +24,10 @@ A non-blocking verification system designed for speed and accuracy:
 ### 📊 Deep Analytics & Verified Ledger
 Gain broad situational awareness over your document set:
 - **Verified Individuals Ledger**: A live, sorted ledger of every entity confirmed by your agents, ranked by reference count.
+- **Search & Filter**: Instantly filter the Verified Ledger by name or role to find specific subjects in large datasets.
 - **Dossier Mode**: Click any verified name to inspect specific mentions, context, and signal strength across all documents.
 - **Geographic & Corporate Matrix**: Visualize hotspots and organizational structures automatically extracted from the text.
+- **Premium Case Files**: Export a professional, print-ready HTML dossier containing all verified intelligence, formatted for official use.
 
 ### 🖥️ Dynamic Local Nodes & Swarm
 Full support for **LM Studio** and local inference with advanced capabilities:
@@ -97,6 +99,27 @@ Access the dashboard at `http://localhost:5173`.
 - **Local First**: Files are processed in your browser or sent directly to your local LM Studio instance.
 - **No Persistence**: Document data is stored in `IndexedDB` (browser storage) and is never uploaded to a central NexusDocs server.
 - **Keys**: API keys are stored in `localStorage` on your device.
+
+---
+
+---
+
+## ❓ Troubleshooting
+**Local Model Swarm Not Working?**
+- Ensure LM Studio is running in **Server Mode**.
+- Verify CORS is enabled in LM Studio settings.
+- Check the Console (F12) for specific swarming errors (e.g., `Parallel Agent [lmstudio] FAILED`).
+
+**Dual Check Not Triggering?**
+- Verify the "Dual Check Mode" toggle is ON in Settings.
+- Ensure the primary model is finding entities classified as "High Priority" (Politicians, Executives).
+
+---
+
+## 📅 Roadmap
+- [ ] **Graph Visualization**: Interactive node-link diagram of all verified entities.
+- [ ] **Voice Memos**: Transcribe and analyze audio notes attached to investigations.
+- [ ] **Offline OCR**: Integrate Tesseract.js for purely local image text extraction.
 
 ---
 
