@@ -147,9 +147,23 @@ export async function analyzeWithLMStudio(text: string, images: string[], endpoi
       throw new Error("No model loaded in LM Studio and no Model ID specified.");
     }
 
-    const promptText = verificationTarget
-      ? RESEARCH_PROMPT.replace("{{TARGET}}", verificationTarget) + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '')
-      : SYSTEM_PROMPT + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+    // Context-Aware Verification Logic
+    let promptText = "";
+    if (verificationTarget) {
+      if (typeof verificationTarget === 'object') {
+        // Rich Context: Name, Role, and Snippet
+        const vt = verificationTarget as any;
+        let contextPrompt = RESEARCH_PROMPT.replace("{{TARGET}}", vt.name);
+        contextPrompt += `\n\nCONTEXT FROM SWARM:\nExpected Role: ${vt.role}\nKey Excerpt: "${vt.context}"\n\nVERIFICATION INSTRUCTION: Verify if the text explicitly supports this role/context for ${vt.name}.`;
+        promptText = contextPrompt + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+      } else {
+        // Legacy String Mode (Name Only)
+        promptText = RESEARCH_PROMPT.replace("{{TARGET}}", verificationTarget as string) + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+      }
+    } else {
+      // Standard Discovery Mode
+      promptText = SYSTEM_PROMPT + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+    }
 
     // Construct standard OpenAI-compatible vision payload
     const content: any[] = [{ type: "text", text: promptText }];

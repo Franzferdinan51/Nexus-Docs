@@ -114,9 +114,21 @@ export async function analyzeDocument(text: string, images: string[], apiKey: st
     timeout: 86400000 // 24 hours extended timeout for massive batch runs
   });
 
-  const promptText = verificationTarget
-    ? RESEARCH_PROMPT.replace("{{TARGET}}", verificationTarget) + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '')
-    : SYSTEM_PROMPT + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+  let promptText = "";
+  if (verificationTarget) {
+    if (typeof verificationTarget === 'object') {
+      // Rich Context Mode
+      const vt = verificationTarget as any;
+      let contextPrompt = RESEARCH_PROMPT.replace("{{TARGET}}", vt.name);
+      contextPrompt += `\n\nCONTEXT FROM SWARM:\nExpected Role: ${vt.role}\nKey Excerpt: "${vt.context}"\n\nVERIFICATION INSTRUCTION: Verify if the text explicitly supports this role/context for ${vt.name}.`;
+      promptText = contextPrompt + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+    } else {
+      // Legacy Mode
+      promptText = RESEARCH_PROMPT.replace("{{TARGET}}", verificationTarget) + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+    }
+  } else {
+    promptText = SYSTEM_PROMPT + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+  }
 
   const parts: any[] = [{ text: promptText }];
 

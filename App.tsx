@@ -154,7 +154,7 @@ export default function App() {
   }, []);
 
   // Hoisted Provider Runner (Accessible by both Agents)
-  const runProvider = useCallback(async (provider: string, t: string, i: string[], verificationTarget?: string, useSearch: boolean = false, mediaItem?: { mimeType: string, data: string }) => {
+  const runProvider = useCallback(async (provider: string, t: string, i: string[], verificationTarget?: any, useSearch: boolean = false, mediaItem?: { mimeType: string, data: string }) => {
     const cfg = stateRef.current.config;
     let modelIdLog = '';
     if (provider === 'gemini') modelIdLog = cfg.geminiModel;
@@ -226,6 +226,10 @@ export default function App() {
       // DISTRIBUTED MODE OVERRIDE
 
       if (targetedProvider) {
+        // SAFETY GATE: Ensure Scheduler didn't assign the Verifier by mistake
+        if (config.dualCheckMode && targetedProvider === config.preferredVerifier) {
+          throw new Error(`Execution Blocked: Agent ${targetedProvider} is reserved for Dual Check verification.`);
+        }
         activeChain = [targetedProvider as any];
       }
 
@@ -428,7 +432,15 @@ export default function App() {
 
         if (verifier) {
           showToast(`[BG] Verifying "${highValueTarget.name}" with ${verifier}...`);
-          const verification = await runProvider(verifier, text, images, highValueTarget.name, verifier === 'gemini');
+
+          // Pass FULL Context for Verification
+          const verificationContext = {
+            name: highValueTarget.name,
+            role: highValueTarget.role,
+            context: highValueTarget.context // The snippet where they were found
+          };
+
+          const verification = await runProvider(verifier, text, images, verificationContext, verifier === 'gemini');
           if (verification && verification.entities.length > 0) {
             analysis.summary += `\n\n[VERIFICATION]: ${verifier} confirms presence of ${highValueTarget.name} (Web Grounding: ${verifier === 'gemini' ? 'Enabled' : 'N/A'}).`;
             lineage.push(`Verified by ${verifier}`);
