@@ -7,13 +7,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 export async function processPdf(file: File | Blob): Promise<{ text: string; images: string[] }> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  
+
   let fullText = '';
   const images: string[] = [];
 
-  for (let i = 1; i <= Math.min(pdf.numPages, 20); i++) { // Limit to first 20 pages for performance
+  for (let i = 1; i <= Math.min(pdf.numPages, 50); i++) { // Limit to 50 pages for performance
     const page = await pdf.getPage(i);
-    
+
     // Extract Text
     const textContent = await page.getTextContent();
     const pageText = textContent.items.map((item: any) => item.str).join(' ');
@@ -27,7 +27,7 @@ export async function processPdf(file: File | Blob): Promise<{ text: string; ima
     const context = canvas.getContext('2d');
     canvas.height = viewport.height;
     canvas.width = viewport.width;
-    
+
     await page.render({ canvasContext: context, viewport: viewport }).promise;
     images.push(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]); // Base64 part only
   }

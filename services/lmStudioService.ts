@@ -68,41 +68,84 @@ async function getAvailableModel(baseUrl: string): Promise<string | null> {
   return null;
 }
 
-export async function analyzeWithLMStudio(text: string, images: string[], endpoint: string): Promise<DocumentAnalysis | null> {
+const RESEARCH_PROMPT = `
+CRITICAL INSTRUCTION: You are an elite intelligence analyst conducting a "Double Take" verification.
+Your Goal: specific verification of a potential target.
+
+TARGET TO VERIFY: "{{TARGET}}"
+
+Task:
+1. Scan the text/images specifically for "{{TARGET}}".
+2. If found, extract their Role, Context, and mark as 'Famous' if applicable.
+3. If NOT found, return empty lists.
+4. DO NOT hallucinate. If the name is not there, say so.
+
+Return JSON matching the schema:
+{
+  "summary": "Verification result for {{TARGET}}...",
+  "entities": [],
+  "keyInsights": [],
+  "flaggedPOIs": [],
+  "locations": [],
+  "organizations": [],
+  "visualObjects": [],
+  "evidenceType": "Verification"
+}
+`;
+
+const SYSTEM_PROMPT = `
+TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT WITH HIGH PRECISION.
+
+CRITICAL RULES:
+- EXTRACT ONLY EXPLICITLY STATED ENTITIES. DO NOT GUESS or INFER names.
+- If a name is illegible or partial, ignore it.
+- Role descriptions must be specific (e.g. "Pilot for JE", "Victim", "Accountant") not vague ("Woman").
+- Eliminate hallucinations: If not in text/image, do not list it.
+
+1. SUMMARY: Provide a precise summary.
+2. ENTITIES: List EVERY person explicitly named. Flag "isFamous: true" for high-profile individuals (political figures, celebrities, billionaires).
+3. POIs: Specifically list any "People of Interest" found (e.g., G. Maxwell, J. Epstein).
+4. KEY INSIGHTS: Direct revelations backed by text.
+5. IMAGES: If image data is provided, describe what is seen (e.g., "Photograph of person X", "Handwritten ledger").
+6. LOCATIONS: List specific places mentioned (cities, islands, addresses).
+7. ORGANIZATIONS: List companies, banks, or groups mentioned.
+8. VISUAL OBJECTS: If images are present, list distinctive objects (e.g., "Safe", "Passport", "Aircraft").
+9. EVIDENCE TYPE: Classify the document (e.g., "Flight Log", "Email", "Invoice", "Testimony", "Court Filing", "Photograph").
+
+Respond with a JSON object containing:
+- summary (string)
+- entities (array of objects with name, role, context, isFamous)
+- keyInsights (array of strings)
+- sentiment (string)
+- documentDate (string, if found)
+- flaggedPOIs (array of strings)
+- locations (array of strings)
+- organizations (array of strings)
+- visualObjects (array of strings)
+- evidenceType (string)
+`;
+
+export async function analyzeWithLMStudio(text: string, images: string[], endpoint: string, verificationTarget?: string, requestedModelId?: string): Promise<DocumentAnalysis | null> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout for local models
+  const timeoutId = setTimeout(() => controller.abort(), 86400000); // 24 hour timeout for massive batch runs
 
   try {
     const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
     const url = `${baseUrl}/v1/chat/completions`;
 
-    // Get the actual loaded model name
-    const modelId = await getAvailableModel(baseUrl);
+    // Get the actual loaded model name OR use requested one
+    let modelId: string | null | undefined = requestedModelId;
     if (!modelId) {
-      throw new Error("No model loaded in LM Studio. Please load a model first.");
+      modelId = await getAvailableModel(baseUrl);
     }
 
-    // Identical prompt to Gemini service
-    const promptText = `
-    TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT
-    
-    1. SUMMARY: Provide a precise summary.
-    2. ENTITIES: List EVERY person. Flag "isFamous: true" for high-profile individuals (political figures, celebrities, billionaires).
-    3. POIs: Specifically list any "People of Interest" found.
-    4. KEY INSIGHTS: Direct revelations.
-    5. IMAGES: If image data is provided, describe what is seen (e.g., "Photograph of person X", "Handwritten ledger").
-    
-    Respond with a JSON object containing:
-    - summary (string)
-    - entities (array of objects with name, role, context, isFamous)
-    - keyInsights (array of strings)
-    - sentiment (string)
-    - documentDate (string, if found)
-    - flaggedPOIs (array of strings)
-    
-    DOCUMENT CONTENT:
-    ${text.substring(0, 40000)}
-    `;
+    if (!modelId) {
+      throw new Error("No model loaded in LM Studio and no Model ID specified.");
+    }
+
+    const promptText = verificationTarget
+      ? RESEARCH_PROMPT.replace("{{TARGET}}", verificationTarget) + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '')
+      : SYSTEM_PROMPT + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
 
     // Construct standard OpenAI-compatible vision payload
     const content: any[] = [{ type: "text", text: promptText }];
@@ -187,7 +230,11 @@ export async function analyzeWithLMStudio(text: string, images: string[], endpoi
       keyInsights: parsed.keyInsights || [],
       sentiment: parsed.sentiment || "Local Analysis",
       documentDate: parsed.documentDate || "Unknown",
-      flaggedPOIs: parsed.flaggedPOIs || []
+      flaggedPOIs: parsed.flaggedPOIs || [],
+      locations: parsed.locations || [],
+      organizations: parsed.organizations || [],
+      visualObjects: parsed.visualObjects || [],
+      evidenceType: parsed.evidenceType || "Unknown"
     };
   } catch (error: any) {
     clearTimeout(timeoutId);
