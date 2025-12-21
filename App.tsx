@@ -47,6 +47,7 @@ export default function App() {
         safeConfig.lmStudioModel4 = safeConfig.lmStudioModel4 || '';
         safeConfig.lmStudioEndpoint4 = safeConfig.lmStudioEndpoint4 || 'http://127.0.0.1:1234';
         safeConfig.preferredVerifier = safeConfig.preferredVerifier || 'auto';
+        safeConfig.swarmMode = safeConfig.swarmMode || 'consensus';
       }
       // Ongoing safeguard: Deduplicate priority list on every load to fix existing corrupted states
       if (safeConfig.priority) safeConfig.priority = [...new Set(safeConfig.priority)];
@@ -57,7 +58,8 @@ export default function App() {
         isProcessing: false,
         view: parsed.view || 'dashboard',
         config: safeConfig,
-        processingQueue: parsed.processingQueue || [] // Restore queue
+        processingQueue: parsed.processingQueue || [], // Restore queue
+        busyProviders: []
       };
     }
     return {
@@ -67,22 +69,28 @@ export default function App() {
       isProcessing: false,
       view: 'dashboard',
       config: {
-        priority: ['gemini', 'openrouter', 'lmstudio', 'lmstudio2'] as string[],
-        enabled: { gemini: true, openrouter: false, lmstudio: false, lmstudio2: false },
+        priority: ['gemini', 'openrouter', 'lmstudio', 'lmstudio2', 'lmstudio3', 'lmstudio4'] as string[],
+        enabled: { gemini: true, openrouter: false, lmstudio: false, lmstudio2: false, lmstudio3: false, lmstudio4: false },
         geminiKey: '',
         openRouterKey: '',
         lmStudioEndpoint: 'http://127.0.0.1:1234',
         lmStudioModel: '',
         lmStudioEndpoint2: 'http://127.0.0.1:1234',
         lmStudioModel2: '',
+        lmStudioEndpoint3: 'http://127.0.0.1:1234',
+        lmStudioModel3: '',
+        lmStudioEndpoint4: 'http://127.0.0.1:1234',
+        lmStudioModel4: '',
         preferredVerifier: 'auto' as const,
         geminiModel: 'gemini-1.5-flash',
         openRouterModel: 'google/gemini-2.0-flash-001',
         parallelAnalysis: false,
-        dualCheckMode: false
+        dualCheckMode: false,
+        swarmMode: 'consensus' as const
       },
       chatHistory: [{ role: 'system', content: 'NEXUS Resilience Protocol Active.', timestamp: Date.now() }],
-      processingQueue: []
+      processingQueue: [],
+      busyProviders: []
     };
   });
 
@@ -164,10 +172,15 @@ export default function App() {
     throw new Error(`Unknown provider ${provider}`);
   }, []);
 
-  const processDocumentAgent = useCallback(async (docId: string) => {
+  const processDocumentAgent = useCallback(async (docId: string, targetedProvider?: string) => {
     // Remove from queue IMMEDIATELY to prevent double-processing and allow next item to start
-    setState(prev => ({ ...prev, processingQueue: prev.processingQueue.filter(id => id !== docId) }));
-    setActiveAgentsCount(prev => prev + 1);
+    setState(prev => ({
+      ...prev,
+      processingQueue: prev.processingQueue.filter(id => id !== docId),
+      // Mark provider as busy if targeted
+      busyProviders: targetedProvider ? [...prev.busyProviders, targetedProvider] : prev.busyProviders
+    }));
+    if (!targetedProvider) setActiveAgentsCount(prev => prev + 1);
 
     // Read from ref to get latest state (avoids stale closure)
     const currentState = stateRef.current;
@@ -210,14 +223,25 @@ export default function App() {
       const config = stateRef.current.config;
       let activeChain = config.priority.filter(p => config.enabled[p]);
 
+      // DISTRIBUTED MODE OVERRIDE
+
+      if (targetedProvider) {
+        activeChain = [targetedProvider as any];
+      }
+
       // EXCLUSIVE MODE: If Dual Check is ON, exclude the Preferred Verifier from the general swarm
       // to keep it dedicated for verification tasks (unless it's the ONLY enabled model)
-      if (config.dualCheckMode && config.preferredVerifier && config.preferredVerifier !== 'auto') {
+      if (!targetedProvider && config.dualCheckMode && config.preferredVerifier && config.preferredVerifier !== 'auto') {
         const isDedicated = activeChain.includes(config.preferredVerifier as any);
-        if (isDedicated && activeChain.length > 1) {
+        if (isDedicated) {
           activeChain = activeChain.filter(p => p !== config.preferredVerifier);
         }
       }
+      if (activeChain.length === 0 && config.dualCheckMode) {
+        // Provide a clear error if user disabled everything else
+        throw new Error("Swarm Prevented: All enabled models are reserved for Dual Check. Enable at least one other model.");
+      }
+
       if (activeChain.length === 0) throw new Error("No intelligence nodes enabled.");
 
       // runProvider is now hoisted and available via closure or callback
@@ -370,7 +394,11 @@ export default function App() {
       showToast(`Error analyzing ${doc.name}: ${err.message.substring(0, 40)}`, "error");
       setState(prev => ({ ...prev }));
     } finally {
-      setActiveAgentsCount(prev => prev - 1);
+      if (targetedProvider) {
+        setState(prev => ({ ...prev, busyProviders: prev.busyProviders.filter(p => p !== targetedProvider) }));
+      } else {
+        setActiveAgentsCount(prev => Math.max(0, prev - 1));
+      }
     }
   }, [updateDocStatus, runProvider]);
 
@@ -421,10 +449,13 @@ export default function App() {
       setState(prev => ({ ...prev, documents: prev.documents.map(d => d.id === docId ? updatedDoc : d) }));
 
     } catch (err) {
-      console.error("Verification error:", err);
-      updateDocStatus(docId, 'completed'); // Just complete it if verification fails
+      console.error("Agent Error:", err);
+      updateDocStatus(docId, 'error');
+    } finally {
+      // Background agent doesn't impact main activeAgentsCount queue pressure
     }
-  }, [runProvider, updateDocStatus]);
+  }, [runProvider]);
+
 
   // Secondary Loop: Watch for 'verifying' items
   const [verifyingIds, setVerifyingIds] = useState<string[]>([]);
@@ -441,19 +472,49 @@ export default function App() {
   }, [state.documents, verifyingIds, processVerificationAgent]);
 
   // Main processing effect - ensures the agent starts when the queue or active count changes
+  // Main processing effect - Scheduler
   useEffect(() => {
     // Wait for documents to load from IDB before starting queue
     if (state.documents.length === 0 && state.processingQueue.length > 0) return;
 
-    if (state.processingQueue.length > 0 && activeAgentsCount < MAX_CONCURRENT_AGENTS) {
-      const nextId = state.processingQueue[0];
-      // Break the synchronous render cycle
-      const t = setTimeout(() => {
-        processDocumentAgent(nextId);
-      }, 50);
-      return () => clearTimeout(t);
+    if (state.processingQueue.length > 0) {
+      const config = state.config;
+
+      // DISTRIBUTED SCHEDULER
+      if (config.parallelAnalysis && config.swarmMode === 'distributed') {
+        // Identify available workers
+        const enabledProviders = config.priority.filter(p => config.enabled[p]);
+
+        // Filter out the "Dual Check" reserved agent if applicable
+        let workerPool = enabledProviders;
+        if (config.dualCheckMode && config.preferredVerifier && config.preferredVerifier !== 'auto') {
+          workerPool = workerPool.filter(p => p !== config.preferredVerifier);
+          // Failover REMOVED: User assumes responsibility for having other workers enabled
+        }
+
+        const availableWorkers = workerPool.filter(p => !state.busyProviders.includes(p));
+
+        if (availableWorkers.length > 0) {
+          const nextWorker = availableWorkers[0];
+          const nextDoc = state.processingQueue[0];
+
+          // Dispatch specific task
+          const t = setTimeout(() => {
+            processDocumentAgent(nextDoc, nextWorker);
+          }, 50);
+          return () => clearTimeout(t);
+        }
+      }
+      // CONSENSUS / SEQUENTIAL SCHEDULER
+      else if (activeAgentsCount < MAX_CONCURRENT_AGENTS) {
+        const nextId = state.processingQueue[0];
+        const t = setTimeout(() => {
+          processDocumentAgent(nextId);
+        }, 50);
+        return () => clearTimeout(t);
+      }
     }
-  }, [state.processingQueue, activeAgentsCount, processDocumentAgent, state.documents.length]);
+  }, [state.processingQueue, activeAgentsCount, processDocumentAgent, state.documents.length, state.busyProviders, state.config]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1310,9 +1371,20 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
             </div>
 
             {/* Parallel Mode */}
-            <div className="p-4 bg-indigo-600/5 border border-indigo-500/20 rounded-xl flex justify-between items-center">
-              <div className="flex items-center gap-3"><Cpu className="w-5 h-5 text-indigo-500" /><div><div className="font-black text-[10px] uppercase text-white">Parallel Swarm</div><div className="text-[7px] text-slate-500 uppercase tracking-widest">Simultaneous execution</div></div></div>
-              <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={localConfig.parallelAnalysis} onChange={e => setLocalConfig({ ...localConfig, parallelAnalysis: e.target.checked })} className="sr-only peer" /><div className="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label>
+            <div className="p-4 bg-indigo-600/5 border border-indigo-500/20 rounded-xl flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3"><Cpu className="w-5 h-5 text-indigo-500" /><div><div className="font-black text-[10px] uppercase text-white">Parallel Swarm</div><div className="text-[7px] text-slate-500 uppercase tracking-widest">Simultaneous execution</div></div></div>
+                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={localConfig.parallelAnalysis} onChange={e => setLocalConfig({ ...localConfig, parallelAnalysis: e.target.checked })} className="sr-only peer" /><div className="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label>
+              </div>
+              {localConfig.parallelAnalysis && (
+                <div className="flex items-center gap-2 justify-end border-t border-indigo-500/10 pt-2">
+                  <span className="text-[7px] font-black uppercase text-indigo-400">Swarm Strategy:</span>
+                  <div className="flex bg-slate-900 rounded-lg p-0.5">
+                    <button onClick={() => setLocalConfig({ ...localConfig, swarmMode: 'consensus' })} className={`px-2 py-1 rounded text-[7px] font-black uppercase transition-all ${localConfig.swarmMode === 'consensus' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-indigo-300'}`}>Consensus (Hybrid)</button>
+                    <button onClick={() => setLocalConfig({ ...localConfig, swarmMode: 'distributed' })} className={`px-2 py-1 rounded text-[7px] font-black uppercase transition-all ${localConfig.swarmMode === 'distributed' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-indigo-300'}`}>Distributed (Fast)</button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

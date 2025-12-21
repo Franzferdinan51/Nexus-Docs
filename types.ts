@@ -68,6 +68,7 @@ export interface ModelConfig {
   dualCheckMode: boolean; // Enable cross-verification
   preferredVerifier: 'auto' | 'gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2' | 'lmstudio3' | 'lmstudio4';
   parallelAnalysis: boolean; // Enable parallel execution
+  swarmMode: 'consensus' | 'distributed'; // 'consensus' = all on 1 doc; 'distributed' = each on different doc
 }
 
 export interface ChatMessage {
@@ -86,4 +87,5 @@ export interface AppState {
   config: ModelConfig;
   chatHistory: ChatMessage[];
   processingQueue: string[];
+  busyProviders: string[]; // Tracks which models are currently busy
 }
