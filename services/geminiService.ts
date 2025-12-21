@@ -1,32 +1,105 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { DocumentAnalysis } from "../types";
 
-export async function analyzeDocument(text: string, images: string[], modelName: string = 'gemini-1.5-flash'): Promise<DocumentAnalysis> {
-  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY || '');
-  const model = genAI.getGenerativeModel({ model: modelName });
+const schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    summary: { type: SchemaType.STRING },
+    entities: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          name: { type: SchemaType.STRING },
+          role: { type: SchemaType.STRING },
+          context: { type: SchemaType.STRING },
+          isFamous: { type: SchemaType.BOOLEAN }
+        },
+        required: ["name", "role", "context", "isFamous"]
+      }
+    },
+    keyInsights: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    sentiment: { type: SchemaType.STRING },
+    documentDate: { type: SchemaType.STRING },
+    flaggedPOIs: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    locations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    organizations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    visualObjects: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    evidenceType: { type: SchemaType.STRING }
+  }
+};
 
-  const prompt = `
-    TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT
-    
-    1. SUMMARY: Provide a precise summary.
-    2. ENTITIES: List EVERY person. Flag "isFamous: true" for high-profile individuals (political figures, celebrities, billionaires).
-    3. POIs: Specifically list any "People of Interest" found.
-    4. KEY INSIGHTS: Direct revelations.
-    5. IMAGES: If image data is provided, describe what is seen (e.g., "Photograph of person X", "Handwritten ledger").
-    
-    Respond with a JSON object containing:
-    - summary (string)
-    - entities (array of objects with name, role, context, isFamous)
-    - keyInsights (array of strings)
-    - sentiment (string)
-    - documentDate (string, if found)
-    - flaggedPOIs (array of strings)
-    
-    DOCUMENT CONTENT:
-    ${text.substring(0, 40000)}
-  `;
+const RESEARCH_PROMPT = `
+CRITICAL INSTRUCTION: You are an elite intelligence analyst conducting a "Double Take" verification.
+Your Goal: specific verification of a potential target.
 
-  const parts: any[] = [{ text: prompt }];
+TARGET TO VERIFY: "{{TARGET}}"
+
+Task:
+1. Scan the text/images specifically for "{{TARGET}}".
+2. If found, extract their Role, Context, and mark as 'Famous' if applicable.
+3. If NOT found, return empty lists.
+4. DO NOT hallucinate. If the name is not there, say so.
+
+Return JSON matching the schema:
+{
+  "summary": "Verification result for {{TARGET}}...",
+  "entities": [],
+  "keyInsights": [],
+  "flaggedPOIs": [],
+  "locations": [],
+  "organizations": [],
+  "visualObjects": [],
+  "evidenceType": "Verification"
+}
+`;
+
+const SYSTEM_PROMPT = `
+TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT WITH HIGH PRECISION.
+
+CRITICAL RULES:
+- EXTRACT ONLY EXPLICITLY STATED ENTITIES. DO NOT GUESS or INFER names.
+- If a name is illegible or partial, ignore it.
+- Role descriptions must be specific (e.g. "Pilot for JE", "Victim", "Accountant") not vague ("Woman").
+- Eliminate hallucinations: If not in text/image, do not list it.
+
+1. SUMMARY: Provide a precise summary.
+2. ENTITIES: List EVERY person explicitly named. Flag "isFamous: true" for high-profile individuals (political figures, celebrities, billionaires).
+3. POIs: Specifically list any "People of Interest" found (e.g., G. Maxwell, J. Epstein).
+4. KEY INSIGHTS: Direct revelations backed by text.
+5. IMAGES: If image data is provided, describe what is seen (e.g., "Photograph of person X", "Handwritten ledger").
+6. LOCATIONS: List specific places mentioned (cities, islands, addresses).
+7. ORGANIZATIONS: List companies, banks, or groups mentioned.
+8. VISUAL OBJECTS: If images are present, list distinctive objects (e.g., "Safe", "Passport", "Aircraft").
+9. EVIDENCE TYPE: Classify the document (e.g., "Flight Log", "Email", "Invoice", "Testimony", "Court Filing", "Photograph").
+
+Respond with a JSON object containing:
+- summary (string)
+- entities (array of objects with name, role, context, isFamous)
+- keyInsights (array of strings)
+- sentiment (string)
+- documentDate (string, if found)
+- flaggedPOIs (array of strings)
+`;
+
+export async function analyzeDocument(text: string, images: string[], apiKey: string, modelId: string = "gemini-1.5-flash", verificationTarget?: string, useSearch: boolean = false): Promise<DocumentAnalysis> {
+  const genAI = new GoogleGenerativeAI(apiKey || import.meta.env.VITE_API_KEY || '');
+  const model = genAI.getGenerativeModel({
+    model: modelId,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+    },
+    tools: useSearch ? [{ googleSearch: {} }] as any : [],
+  }, {
+    timeout: 86400000 // 24 hours extended timeout for massive batch runs
+  });
+
+  const promptText = verificationTarget
+    ? RESEARCH_PROMPT.replace("{{TARGET}}", verificationTarget) + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '')
+    : SYSTEM_PROMPT + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '');
+
+  const parts: any[] = [{ text: promptText }];
 
   // Add images if present
   for (const img of images.slice(0, 5)) {
@@ -35,21 +108,38 @@ export async function analyzeDocument(text: string, images: string[], modelName:
     });
   }
 
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts }],
-    generationConfig: {
-      responseMimeType: "application/json",
-    }
-  });
-
-  const response = result.response;
-  const responseText = response.text();
-
   try {
-    return JSON.parse(responseText);
-  } catch {
+    let attempts = 0;
+    const maxAttempts = 3;
+    let finalError;
+
+    while (attempts < maxAttempts) {
+      try {
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts }]
+        });
+
+        const response = result.response;
+        const responseText = response.text();
+        return JSON.parse(responseText);
+      } catch (error: any) {
+        finalError = error;
+        // Check for 429 or 503 (transient errors)
+        if (error.message?.includes("429") || error.message?.includes("503") || error.status === 429) {
+          attempts++;
+          console.warn(`Gemini 429/503 hit. Retrying in ${20 * attempts}s... (Attempt ${attempts}/${maxAttempts})`);
+          await new Promise(resolve => setTimeout(resolve, 20000 * attempts));
+          continue;
+        }
+        // If not transient, throw immediately to be caught below
+        throw error;
+      }
+    }
+    throw finalError; // Max retries exceeded
+  } catch (error) {
+    console.error("Gemini Analysis Error:", error);
     return {
-      summary: responseText,
+      summary: "Analysis failed or returned invalid JSON.",
       entities: [],
       keyInsights: [],
       sentiment: "unknown",

@@ -9,31 +9,70 @@ function cleanJsonResponse(text: string): string {
 }
 
 export async function analyzeWithOpenRouter(
-  text: string, 
-  images: string[], 
-  apiKey: string, 
-  model: string = 'google/gemini-2.0-flash-001'
+  text: string,
+  images: string[],
+  apiKey: string,
+  model: string = 'google/gemini-2.0-flash-001',
+  verificationTarget?: string
 ): Promise<DocumentAnalysis> {
   if (!apiKey) {
     throw new Error("OpenRouter API Key is missing. Check Control settings.");
   }
 
-  const prompt = `
-    TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT. 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 86400000); // 24 hour timeout
+
+  const promptText = verificationTarget
+    ? `
+      CRITICAL INSTRUCTION: You are an elite intelligence analyst conducting a "Double Take" verification.
+      Your Goal: specific verification of a potential target.
+
+      TARGET TO VERIFY: "${verificationTarget}"
+
+      Task:
+      1. Scan the text/images specifically for "${verificationTarget}".
+      2. If found, extract their Role, Context, and mark as 'Famous' if applicable.
+      3. If NOT found, return empty lists.
+      4. DO NOT hallucinate. If the name is not there, say so.
+
+      Return JSON matching the schema:
+      {
+        "summary": "Verification result for ${verificationTarget}...",
+        "entities": [],
+        "keyInsights": [],
+        "flaggedPOIs": [],
+        "locations": [],
+        "organizations": [],
+        "visualObjects": [],
+        "evidenceType": "Verification"
+      }
+      `
+    : `
+    TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT WITH HIGH PRECISION.
     OUTPUT ONLY VALID JSON.
     
+    CRITICAL RULES:
+    - EXTRACT ONLY EXPLICITLY STATED ENTITIES. DO NOT GUESS or INFER names.
+    - If a name is illegible or partial, ignore it.
+    - Role descriptions must be specific (e.g. "Pilot for JE", "Victim", "Accountant") not vague ("Woman").
+    - Eliminate hallucinations: If not in text/image, do not list it.
+
     1. summary: A precise 2-sentence summary of the document's nature and core content.
     2. entities: List EVERY person mentioned. Include isFamous: true for high-profile targets (politicians, billionaires, celebrities).
     3. keyInsights: Direct revelations or significant details found in the text or images.
     4. flaggedPOIs: List names of key targets or individuals of specific interest.
+    5. locations: List specific places mentioned (cities, islands, addresses).
+    6. organizations: List companies, banks, or groups mentioned.
+    7. visualObjects: If images are present, list distinctive objects (e.g., "Safe", "Passport").
+    8. evidenceType: Classify the document (e.g., "Flight Log", "Email", "Invoice", "Testimony", "Court Filing", "Photograph").
     
     DOCUMENT TEXT CONTENT:
-    ${text.substring(0, 30000)}
+    ${text ? text.substring(0, 30000) : ''}
   `;
 
   // Construct message with vision support if images are present
-  const messageContent: any[] = [{ type: "text", text: prompt }];
-  
+  const messageContent: any[] = [{ type: "text", text: promptText }];
+
   // Add up to 5 images for vision analysis
   images.slice(0, 5).forEach((imgBase64) => {
     messageContent.push({
@@ -47,8 +86,9 @@ export async function analyzeWithOpenRouter(
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
+      signal: controller.signal,
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${apiKey.trim()}`,
         "Content-Type": "application/json",
         "HTTP-Referer": window.location.origin,
         "X-Title": "Epstein Nexus"
@@ -56,13 +96,13 @@ export async function analyzeWithOpenRouter(
       body: JSON.stringify({
         model: model,
         messages: [
-          { 
-            role: "system", 
-            content: "You are a professional OSINT investigator. You analyze documents and images related to the Epstein case. You only output valid JSON." 
+          {
+            role: "system",
+            content: "You are a professional OSINT investigator. You analyze documents and images related to the Epstein case. You only output valid JSON."
           },
-          { 
-            role: "user", 
-            content: messageContent 
+          {
+            role: "user",
+            content: messageContent
           }
         ],
         response_format: { type: "json_object" }
@@ -82,7 +122,7 @@ export async function analyzeWithOpenRouter(
 
     const rawContent = data.choices[0].message.content;
     const cleanedContent = cleanJsonResponse(rawContent);
-    
+
     let parsed: any;
     try {
       parsed = JSON.parse(cleanedContent);
@@ -97,10 +137,17 @@ export async function analyzeWithOpenRouter(
       keyInsights: parsed.keyInsights || [],
       sentiment: "Investigative",
       documentDate: parsed.documentDate || "Unknown",
-      flaggedPOIs: parsed.flaggedPOIs || []
+      flaggedPOIs: parsed.flaggedPOIs || [],
+      locations: parsed.locations || [],
+      organizations: parsed.organizations || [],
+      visualObjects: parsed.visualObjects || [],
+      evidenceType: parsed.evidenceType || "Unknown"
     };
   } catch (err: any) {
+    clearTimeout(timeoutId);
     console.error("OpenRouter Service Error:", err);
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
