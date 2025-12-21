@@ -146,8 +146,8 @@ export default function App() {
     console.log(`[Invoking ${provider}] Model: ${modelIdLog}`);
     if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch);
     if (provider === 'openrouter') return analyzeWithOpenRouter(t, i, cfg.openRouterKey, cfg.openRouterModel, verificationTarget);
-    if (provider === 'lmstudio') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint, verificationTarget, cfg.lmStudioModel);
-    if (provider === 'lmstudio2') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint2, verificationTarget, cfg.lmStudioModel2);
+    if (provider === 'lmstudio') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint, verificationTarget, cfg.lmStudioModel, useSearch);
+    if (provider === 'lmstudio2') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint2, verificationTarget, cfg.lmStudioModel2, useSearch);
     throw new Error(`Unknown provider ${provider}`);
   }, []);
 
@@ -190,6 +190,13 @@ export default function App() {
         const results = await Promise.allSettled(activeChain.map(p =>
           runProvider(p, text, images).then(res => ({ provider: p, data: res }))
         ));
+
+        // Log failures for debugging
+        results.forEach((r, index) => {
+          if (r.status === 'rejected') {
+            console.error(`Parallel Agent [${activeChain[index]}] FAILED:`, r.reason);
+          }
+        });
 
         const successes = results
           .filter(r => r.status === 'fulfilled')
@@ -1469,6 +1476,38 @@ function AnalyticsView({ state, setState }: any) {
             </div>
           ))}
           {sortedPolitical.length === 0 && <div className="col-span-4 text-center py-6 text-slate-600 italic">No government or political ties detected in current dataset.</div>}
+        </div>
+      </div>
+
+      {/* Verified Individuals Ledger */}
+      <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
+        <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Users className="w-3 h-3" /> Verified Individuals Ledger</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 text-[8px] uppercase tracking-widest text-slate-500">
+                <th className="p-2 font-black">Target Name</th>
+                <th className="p-2 font-black">Classification</th>
+                <th className="p-2 font-black text-right">Reference Count</th>
+                <th className="p-2 font-black text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...state.pois].sort((a: any, b: any) => b.mentions.length - a.mentions.length).map((p: any, i: number) => (
+                <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
+                  <td className="p-2 font-bold text-slate-200 text-[10px]">{p.name}</td>
+                  <td className="p-2 text-[9px] text-slate-400 font-mono">{p.isPolitical ? 'HIGH PROFILE' : 'Standard Subject'}</td>
+                  <td className="p-2 text-[10px] font-mono text-indigo-400 text-right font-bold">{p.mentions.length}</td>
+                  <td className="p-2 text-right">
+                    <button onClick={() => setSelectedEntity({ name: p.name, type: 'person' })} className="text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-400 transition-colors">
+                      View Dossier
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {state.pois.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-600 italic">No verified individuals recorded yet.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </div>
 
