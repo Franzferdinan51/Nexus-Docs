@@ -89,7 +89,9 @@ Return valid JSON. IMPORTANT: Escape all double quotes within strings.
   "locations": [],
   "organizations": [],
   "visualObjects": [],
-  "evidenceType": "Verification"
+  "evidenceType": "Verification",
+  "confidenceScore": 0,
+  "timelineEvents": []
 }
 `;
 
@@ -108,6 +110,8 @@ CRITICAL INSTRUCTIONS:
 4. KEY INSIGHTS: Connect visual elements to potential evidence (e.g., "Meeting suggests close association").
 5. VISUAL OBJECTS: distinctive items (Safe, Aircraft Tail Number, Passport).
 6. EVIDENCE TYPE: e.g., "Surveillance Photo", "Flight Log", "Passport Scan".
+7. TIMELINE: Chronological list of events ({ date, event }).
+8. CONFIDENCE: 0-100 score of your certainty.
 
 Respond with a valid JSON object. IMPORTANT: Escape all double quotes within strings.
 Containing:
@@ -121,6 +125,8 @@ Containing:
 - organizations (array of strings)
 - visualObjects (array of strings)
 - evidenceType (string)
+- confidenceScore (number)
+- timelineEvents (array of {date, event})
 `;
 
 export async function analyzeWithLMStudio(text: string, images: string[], endpoint: string, verificationTarget?: string, requestedModelId?: string, useSearch: boolean = false): Promise<DocumentAnalysis | null> {
@@ -252,7 +258,9 @@ export async function analyzeWithLMStudio(text: string, images: string[], endpoi
       locations: parsed.locations || [],
       organizations: parsed.organizations || [],
       visualObjects: parsed.visualObjects || [],
-      evidenceType: parsed.evidenceType || "Unknown"
+      evidenceType: parsed.evidenceType || "Unknown",
+      confidenceScore: parsed.confidenceScore || 0,
+      timelineEvents: parsed.timelineEvents || []
     };
   } catch (error: any) {
     clearTimeout(timeoutId);

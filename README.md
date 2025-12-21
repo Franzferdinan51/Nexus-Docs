@@ -35,6 +35,19 @@ Full support for **LM Studio** and local inference with advanced capabilities:
 - **Swarm Consensus**: When "Parallel Swarm" is enabled, local models working alongside cloud models vote on findings. Verified entities are marked with `[SWARM CONFIRMED]`.
 - **Multi-Port Swarming**: Connect multiple local instances (e.g., Port 1234 and Port 1235) to simulate a local cluster.
 
+### 🕵️ Agent Intelligence (v2.0)
+The core agent has been upgraded with cognitive enhancements:
+- **Chain of Thought (CoT)**: System prompts now enforce "step-by-step" reasoning to reduce hallucinations.
+- **Confidence Scoring**: Every document is assigned a 0-100% confidence score based on extraction clarity.
+- **Timeline Reconstruction**: The agent automatically extracts a chronological list of events (`Date` -> `Event`) from case files.
+- **Timeline Reconstruction**: The agent automatically extracts a chronological list of events (`Date` -> `Event`) from case files.
+
+### 💬 Advanced Chat Interface
+A premium command center for interacting with your data:
+- **One-Tap Suggestions**: Rapidly launch "Briefings", "Risk Assessments", or "Entity Lists" with suggestion chips.
+- **Thinking State**: Visual pulse indicator ("Analyzing Vector Space...") for real-time feedback.
+- **Terminal UI**: Enhanced aesthetic for maximum readability and "hacker" feel.
+
 ---
 
 ## 💡 Use Cases
