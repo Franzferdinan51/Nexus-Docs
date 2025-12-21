@@ -1,20 +1,86 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+![NexusDocs Banner](https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6)
 
-# Run and deploy your AI Studio app
+# NexusDocs Intelligence Platform
 
-This contains everything you need to run your app locally.
+**NexusDocs** is a privacy-first, local-first AI platform designed for high-throughput document analysis, entity extraction, and intelligence gathering. It leverages a "Hybrid Swarm" architecture to combine the speed of local LLMs with the reasoning power of cloud models.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1VhLLjHnByDXZ-ANKYqlHqAyBtLiQ2rDX
+---
 
-## Run Locally
+## 🚀 Key Features
 
-**Prerequisites:**  Node.js
+### 🧠 Hybrid Swarm Architecture
+NexusDocs orchestrates multiple AI models working in concert:
+- **Parallel Swarm**: Run multiple agents (Gemini, OpenRouter, Local Models) simultaneously on a single document to gather diverse perspectives.
+- **Consensus Engine**: Automatically aggregates and cross-validates findings from all agents to reduce hallucinations (e.g., "[SWARM CONFIRMED]").
+- **Resilient Failover**: If a primary agent fails, the system automatically routes the task to the next available provider.
 
+### ⚡ Async Verification Pipeline ("Dual-Check")
+A non-blocking verification system designed for speed and accuracy:
+1.  **Fast Lane**: Your primary (fast/local) model scans documents rapidly.
+2.  **Smart Routing**: If a "High Value Target" (e.g., Politician, VIP) is detected, the document is marked as **"VERIFYING"** (Purple Badge).
+3.  **Background Verification**: A dedicated background agent picks up the task and uses your **Preferred Verifier** (e.g., Gemini with Google Search or a larger Local Model) to double-check the finding.
+ *Result: You get the throughput of a small model with the accuracy of a large model.*
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 🖥️ Dynamic Local Nodes
+Full support for **LM Studio** and local inference:
+- **Multi-Model Support**: Configure a single LM Studio endpoint to switch models dynamically on request.
+- **Port Management**: Connect multiple local nodes (e.g., Port 1234 and Port 1235) to distribute the load.
+
+---
+
+## 🛠️ Setup & Configuration
+
+### Prerequisites
+- **Node.js**: v18 or higher.
+- **LM Studio** (Optional): For local LLM inference.
+
+### Installation
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/your-repo/nexusdocs.git
+    cd nexusdocs
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Configure Environment:
+    Create a `.env.local` file (optional, or configure via UI settings):
+    ```env
+    VITE_GEMINI_API_KEY=your_key_here
+    VITE_OPENROUTER_API_KEY=your_key_here
+    ```
+
+### Running Locally
+```bash
+npm run dev
+```
+Access the dashboard at `http://localhost:5173`.
+
+---
+
+## ⚙️ Configuration Guide
+
+### Enabling "Dual-Check" Mode
+1.  Go to **Settings** (Gear Icon).
+2.  Enable **"Dual Check Mode"**.
+3.  Select your **"Preferred Verifier"** (e.g., "Local Model B" or "Gemini").
+    *   *Tip: Use a small model for the main loop and a large/reasoning model for the verifier.*
+
+### Connecting LM Studio
+1.  Start LM Studio and load a model.
+2.  Start the Local Server (Default Port: `1234`).
+3.  In NexusDocs **Settings**, enable "Local Model A" and verify the endpoint is `http://127.0.0.1:1234`.
+4.  (Optional) Enter the specific **Model ID** (e.g., `llama-3-8b`) if you want NexusDocs to request a specific model load.
+
+---
+
+## 🔒 Privacy & Security
+- **Local First**: Files are processed in your browser or sent directly to your local LM Studio instance.
+- **No Persistence**: Document data is stored in `IndexedDB` (browser storage) and is never uploaded to a central NexusDocs server.
+- **Keys**: API keys are stored in `localStorage` on your device.
+
+---
+
+## License
+MIT License.
