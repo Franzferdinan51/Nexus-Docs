@@ -208,7 +208,16 @@ export default function App() {
 
       // Read config from ref to get latest values
       const config = stateRef.current.config;
-      const activeChain = config.priority.filter(p => config.enabled[p]);
+      let activeChain = config.priority.filter(p => config.enabled[p]);
+
+      // EXCLUSIVE MODE: If Dual Check is ON, exclude the Preferred Verifier from the general swarm
+      // to keep it dedicated for verification tasks (unless it's the ONLY enabled model)
+      if (config.dualCheckMode && config.preferredVerifier && config.preferredVerifier !== 'auto') {
+        const isDedicated = activeChain.includes(config.preferredVerifier as any);
+        if (isDedicated && activeChain.length > 1) {
+          activeChain = activeChain.filter(p => p !== config.preferredVerifier);
+        }
+      }
       if (activeChain.length === 0) throw new Error("No intelligence nodes enabled.");
 
       // runProvider is now hoisted and available via closure or callback
