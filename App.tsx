@@ -264,7 +264,7 @@ export default function App() {
       // Check if we need verification, if so, mark as 'verifying' and exit. Main loop continues.
       let nextStatus: ProcessedDocument['status'] = 'completed';
       if (config.dualCheckMode && analysis) {
-        const highValueTarget = analysis.entities.find(e => e.isFamous || /senator|president|governor|ambassador|prince/i.test(e.role));
+        const highValueTarget = analysis.entities.find(e => e.isFamous || /senator|president|governor|ambassador|prince|royal|king|queen|actor|actress|celebrity|star|musician|singer|model|producer|director|vip|magnate|tycoon|billionaire/i.test(e.role));
         if (highValueTarget) {
           nextStatus = 'verifying'; // Hand off to Verification Agent
         }
@@ -298,7 +298,7 @@ export default function App() {
                   id: Math.random().toString(36).substr(2, 9),
                   name: e.name,
                   mentions: [{ docId, docName: doc.name, context: e.context }],
-                  isPolitical: e.isFamous && /president|governor|senator|clerk/i.test(e.role)
+                  isPolitical: e.isFamous && /president|governor|senator|clerk|ambassador|prince|royal|king|queen|actor|actress|celebrity|star|musician|singer|model|producer|director|vip|magnate|tycoon|billionaire|ceo|founder/i.test(e.role)
                 });
               }
             }
@@ -1314,7 +1314,7 @@ function AnalyticsView({ state, setState }: any) {
   const locations: Record<string, number> = {};
   const orgs: Record<string, number> = {};
   const politicalFigures: Map<string, { count: number, roles: Set<string> }> = new Map();
-  const keywords = ['senat', 'gov', 'president', 'minister', 'ambassador', 'judge', 'general', 'mayor', 'rep', 'sec', 'official', 'prosecutor', 'politician', 'congress', 'prince', 'duke', 'royal', 'chief'];
+  const keywords = ['senat', 'gov', 'president', 'minister', 'ambassador', 'judge', 'general', 'mayor', 'rep', 'sec', 'official', 'prosecutor', 'politician', 'congress', 'prince', 'duke', 'royal', 'chief', 'actor', 'actress', 'star', 'celebrity', 'model', 'singer', 'musician', 'producer', 'director', 'magnate', 'tycoon', 'billionaire', 'founder', 'ceo', 'vip'];
 
   state.documents.forEach((d: any) => {
     if (d.status === 'completed' && d.analysis) {
