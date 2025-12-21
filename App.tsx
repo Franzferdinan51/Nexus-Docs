@@ -1633,7 +1633,35 @@ function AnalyticsView({ state, setState }: any) {
         </div>
       </div>
 
-      {/* Verified Individuals Ledger */}
+
+
+      {/* Global Master Timeline */}
+      <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
+        <h3 className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Calendar className="w-3 h-3" /> Master Event Timeline</h3>
+        <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-4 snap-x">
+          {(() => {
+            const allEvents = state.documents
+              .flatMap((d: any) => (d.analysis?.timelineEvents || []).map((t: any) => ({ ...t, docName: d.name, docId: d.id })))
+              .sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+            if (allEvents.length === 0) return <div className="w-full text-center py-6 text-slate-600 italic text-xs uppercase tracking-widest">No chronological data extracted.</div>;
+
+            return allEvents.map((evt: any, i: number) => (
+              <div key={i} className="min-w-[200px] max-w-[200px] snap-start relative group flex-shrink-0">
+                <div className="w-2 h-2 bg-amber-600 rounded-full border border-slate-900 absolute -bottom-[21px] left-4 z-10"></div>
+                <div className="border-l-2 border-slate-800/50 pl-4 py-2 hover:border-amber-600/50 transition-colors h-full flex flex-col">
+                  <div className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">{evt.date}</div>
+                  <div className="text-[10px] font-bold text-slate-300 leading-tight mb-2 line-clamp-3 group-hover:line-clamp-none transition-all">{evt.event}</div>
+                  <div onClick={() => setState((p: any) => ({ ...p, view: 'document_detail', selectedDocId: evt.docId }))} className="mt-auto flex items-center gap-1 text-[8px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-indigo-400">
+                    <FileText className="w-2.5 h-2.5" /> Source
+                  </div>
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+        <div className="h-px bg-slate-800 w-full mt-[-6px]"></div>
+      </div>
       <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2"><Users className="w-3 h-3" /> Verified Individuals Ledger</h3>
@@ -1713,7 +1741,7 @@ function AnalyticsView({ state, setState }: any) {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
