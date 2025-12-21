@@ -44,7 +44,9 @@ export async function analyzeWithOpenRouter(
         "locations": [],
         "organizations": [],
         "visualObjects": [],
-        "evidenceType": "Verification"
+        "evidenceType": "Verification",
+        "confidenceScore": 0,
+        "timelineEvents": []
       }
       `
     : `
@@ -65,6 +67,9 @@ export async function analyzeWithOpenRouter(
     6. organizations: List companies, banks, or groups mentioned.
     7. visualObjects: If images are present, list distinctive objects (e.g., "Safe", "Passport").
     8. evidenceType: Classify the document (e.g., "Flight Log", "Email", "Invoice", "Testimony", "Court Filing", "Photograph").
+    9. timelineEvents: List of { date, event } for all chronological events.
+    10. confidenceScore: Number (0-100) indicating analysis certainty.
+    11. reasoning: Explain your thought process in the summary.
     
     DOCUMENT TEXT CONTENT:
     ${text ? text.substring(0, 30000) : ''}
@@ -141,7 +146,9 @@ export async function analyzeWithOpenRouter(
       locations: parsed.locations || [],
       organizations: parsed.organizations || [],
       visualObjects: parsed.visualObjects || [],
-      evidenceType: parsed.evidenceType || "Unknown"
+      evidenceType: parsed.evidenceType || "Unknown",
+      confidenceScore: parsed.confidenceScore || 0,
+      timelineEvents: parsed.timelineEvents || []
     };
   } catch (err: any) {
     clearTimeout(timeoutId);

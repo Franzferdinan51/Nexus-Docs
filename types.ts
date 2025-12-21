@@ -31,6 +31,8 @@ export interface DocumentAnalysis {
   organizations?: string[]; // New: Companies/Groups
   visualObjects?: string[]; // New: Objects found in images
   evidenceType?: string; // New: e.g., "Financial Record", "Email", "Photo"
+  confidenceScore?: number; // 0-100 score of analysis certainty
+  timelineEvents?: { date: string; event: string }[]; // Chronological events found
 }
 
 export interface POI {

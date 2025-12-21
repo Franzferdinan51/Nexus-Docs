@@ -25,7 +25,19 @@ const schema = {
     locations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
     organizations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
     visualObjects: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-    evidenceType: { type: SchemaType.STRING }
+    evidenceType: { type: SchemaType.STRING },
+    confidenceScore: { type: SchemaType.NUMBER },
+    timelineEvents: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          date: { type: SchemaType.STRING },
+          event: { type: SchemaType.STRING }
+        },
+        required: ["date", "event"]
+      }
+    }
   }
 };
 
@@ -50,7 +62,9 @@ Return JSON matching the schema:
   "locations": [],
   "organizations": [],
   "visualObjects": [],
-  "evidenceType": "Verification"
+  "evidenceType": "Verification",
+  "confidenceScore": 0,
+  "timelineEvents": []
 }
 `;
 
@@ -72,6 +86,9 @@ CRITICAL RULES:
 7. ORGANIZATIONS: List companies, banks, or groups mentioned.
 8. VISUAL OBJECTS: If images are present, list distinctive objects (e.g., "Safe", "Passport", "Aircraft").
 9. EVIDENCE TYPE: Classify the document (e.g., "Flight Log", "Email", "Invoice", "Testimony", "Court Filing", "Photograph").
+10. TIMELINE: Extract every specific date and the corresponding event into a chronological list.
+11. CONFIDENCE SCORE: Rate your confidence in the extraction (0-100) based on document legibility and clarity.
+12. REASONING: Briefly explain your analysis logic in the summary.
 
 Respond with a JSON object containing:
 - summary (string)
@@ -80,9 +97,11 @@ Respond with a JSON object containing:
 - sentiment (string)
 - documentDate (string, if found)
 - flaggedPOIs (array of strings)
+- confidenceScore (number)
+- timelineEvents (array of objects with date, event)
 `;
 
-export async function analyzeDocument(text: string, images: string[], apiKey: string, modelId: string = "gemini-1.5-flash", verificationTarget?: string, useSearch: boolean = false): Promise<DocumentAnalysis> {
+export async function analyzeDocument(text: string, images: string[], apiKey: string, modelId: string = "gemini-1.5-flash", verificationTarget?: string, useSearch: boolean = false, mediaItem?: { mimeType: string, data: string }): Promise<DocumentAnalysis> {
   const genAI = new GoogleGenerativeAI(apiKey || import.meta.env.VITE_API_KEY || '');
   const model = genAI.getGenerativeModel({
     model: modelId,
@@ -105,6 +124,13 @@ export async function analyzeDocument(text: string, images: string[], apiKey: st
   for (const img of images.slice(0, 5)) {
     parts.push({
       inlineData: { mimeType: "image/jpeg", data: img }
+    });
+  }
+
+  // Add Video/Audio if present
+  if (mediaItem) {
+    parts.push({
+      inlineData: { mimeType: mediaItem.mimeType, data: mediaItem.data }
     });
   }
 

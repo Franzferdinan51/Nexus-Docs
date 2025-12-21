@@ -12,6 +12,7 @@ import { analyzeDocument, ragChat } from './services/geminiService';
 import { analyzeWithLMStudio, testLMStudioConnection } from './services/lmStudioService';
 import { analyzeWithOpenRouter } from './services/openRouterService';
 import { saveDocument, getDocuments, clearDocuments } from './db';
+import { EntityGraph } from './components/EntityGraph';
 
 declare const JSZip: any;
 
@@ -135,7 +136,7 @@ export default function App() {
   }, []);
 
   // Hoisted Provider Runner (Accessible by both Agents)
-  const runProvider = useCallback(async (provider: string, t: string, i: string[], verificationTarget?: string, useSearch: boolean = false) => {
+  const runProvider = useCallback(async (provider: string, t: string, i: string[], verificationTarget?: string, useSearch: boolean = false, mediaItem?: { mimeType: string, data: string }) => {
     const cfg = stateRef.current.config;
     let modelIdLog = '';
     if (provider === 'gemini') modelIdLog = cfg.geminiModel;
@@ -144,7 +145,7 @@ export default function App() {
     else if (provider === 'lmstudio2') modelIdLog = cfg.lmStudioModel2 || 'Auto-Detect';
 
     console.log(`[Invoking ${provider}] Model: ${modelIdLog}`);
-    if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch);
+    if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch, (arguments[5] as any));
     if (provider === 'openrouter') return analyzeWithOpenRouter(t, i, cfg.openRouterKey, cfg.openRouterModel, verificationTarget);
     if (provider === 'lmstudio') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint, verificationTarget, cfg.lmStudioModel, useSearch);
     if (provider === 'lmstudio2') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint2, verificationTarget, cfg.lmStudioModel2, useSearch);
@@ -171,7 +172,24 @@ export default function App() {
 
     try {
       console.log(`Analyzing Fragment: ${doc.name}...`);
-      const { text, images } = await processPdf(blob);
+
+      let text = '';
+      let images: string[] = [];
+      let mediaItem: { mimeType: string, data: string } | undefined;
+
+      if (doc.type === 'video' || doc.type === 'audio') {
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        mediaItem = { mimeType: blob.type, data: b64.split(',')[1] };
+      } else {
+        const res = await processPdf(blob);
+        text = res.text;
+        images = res.images;
+      }
+
       let analysis: DocumentAnalysis | null = null;
       let lineage: string[] = [];
       let finalProvider = '';
@@ -188,7 +206,7 @@ export default function App() {
         showToast(`Running Parallel Swarm (${activeChain.length} nodes) on ${doc.name}...`);
 
         const results = await Promise.allSettled(activeChain.map(p =>
-          runProvider(p, text, images).then(res => ({ provider: p, data: res }))
+          runProvider(p, text, images, undefined, false, mediaItem).then(res => ({ provider: p, data: res }))
         ));
 
         // Log failures for debugging
@@ -245,7 +263,7 @@ export default function App() {
         for (const provider of activeChain) {
           try {
             lineage.push(provider);
-            analysis = await runProvider(provider, text, images);
+            analysis = await runProvider(provider, text, images, undefined, false, mediaItem);
 
             if (analysis && analysis.summary) {
               finalProvider = provider;
@@ -264,7 +282,7 @@ export default function App() {
       // Check if we need verification, if so, mark as 'verifying' and exit. Main loop continues.
       let nextStatus: ProcessedDocument['status'] = 'completed';
       if (config.dualCheckMode && analysis) {
-        const highValueTarget = analysis.entities.find(e => e.isFamous || /senator|president|governor|ambassador|prince/i.test(e.role));
+        const highValueTarget = analysis.entities.find(e => e.isFamous || /senator|president|governor|ambassador|prince|royal|king|queen|actor|actress|celebrity|star|musician|singer|model|producer|director|vip|magnate|tycoon|billionaire/i.test(e.role));
         if (highValueTarget) {
           nextStatus = 'verifying'; // Hand off to Verification Agent
         }
@@ -298,7 +316,7 @@ export default function App() {
                   id: Math.random().toString(36).substr(2, 9),
                   name: e.name,
                   mentions: [{ docId, docName: doc.name, context: e.context }],
-                  isPolitical: e.isFamous && /president|governor|senator|clerk/i.test(e.role)
+                  isPolitical: e.isFamous && /president|governor|senator|clerk|ambassador|prince|royal|king|queen|actor|actress|celebrity|star|musician|singer|model|producer|director|vip|magnate|tycoon|billionaire|ceo|founder/i.test(e.role)
                 });
               }
             }
@@ -438,11 +456,18 @@ export default function App() {
             fileStore[id] = await (zipEntry as any).async('blob');
             newDocs.push({ id, name: filename, type: 'pdf', content: '', images: [], status: 'pending' });
             queueIds.push(id);
+            queueIds.push(id);
           }
         } else if (file.name.endsWith('.pdf')) {
           const id = Math.random().toString(36).substr(2, 9);
           fileStore[id] = file;
           newDocs.push({ id, name: file.name, type: 'pdf', content: '', images: [], status: 'pending' });
+          queueIds.push(id);
+        } else if (/\.(mp4|mov|avi|mp3|wav|m4a)$/i.test(file.name)) {
+          const id = Math.random().toString(36).substr(2, 9);
+          fileStore[id] = file;
+          const type = /\.(mp3|wav|m4a)$/i.test(file.name) ? 'audio' : 'video';
+          newDocs.push({ id, name: file.name, type: type as any, content: '', images: [], status: 'pending' });
           queueIds.push(id);
         }
       } catch (err) {
@@ -484,25 +509,26 @@ export default function App() {
     }
   };
 
-  const handleChat = async () => {
-    if (!chatInput.trim()) return;
-    const userMsg: ChatMessage = { role: 'user', content: chatInput, timestamp: Date.now() };
+  const handleChat = async (overrideInput?: string) => {
+    const text = overrideInput || chatInput;
+    if (!text.trim()) return;
+    const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() };
     setState(prev => ({ ...prev, chatHistory: [...prev.chatHistory, userMsg] }));
     setChatInput('');
     try {
-      const searchTerms = chatInput.toLowerCase().split(' ').filter(t => t.length > 3);
+      const searchTerms = text.toLowerCase().split(' ').filter(t => t.length > 3);
       const relevantDocs = state.documents.filter(d => d.status === 'completed').map(doc => {
         let score = 0;
         searchTerms.forEach(term => {
           if (doc.name.toLowerCase().includes(term)) score += 10;
-          if (doc.analysis?.summary.toLowerCase().includes(term)) score += 5;
-          if (doc.content.toLowerCase().includes(term)) score += 1;
+          if ((doc.analysis?.summary || "").toLowerCase().includes(term)) score += 5;
+          if ((doc.analysis?.entities || []).some((e: any) => e.name.toLowerCase().includes(term))) score += 20;
         });
         return { doc, score };
-      }).filter(i => i.score > 0).sort((a, b) => b.score - a.score).slice(0, 5).map(i => i.doc);
+      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.doc);
 
-      const chatModel = state.config.enabled.gemini ? state.config.geminiModel : 'gemini-3-flash-preview';
-      const response = await ragChat(chatInput, relevantDocs, state.chatHistory, chatModel);
+      const chatModel = state.config.enabled.gemini ? state.config.geminiModel : 'gemini-1.5-flash';
+      const response = await ragChat(text, relevantDocs, state.chatHistory, chatModel);
       setState(prev => ({ ...prev, chatHistory: [...prev.chatHistory, { role: 'assistant', content: response, timestamp: Date.now(), references: relevantDocs.map(d => d.name) }] }));
     } catch {
       setState(prev => ({ ...prev, chatHistory: [...prev.chatHistory, { role: 'system', content: 'Agent disconnect. Intelligence loop failed.', timestamp: Date.now() }] }));
@@ -538,7 +564,7 @@ export default function App() {
           <label className="flex items-center justify-center gap-2 p-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer transition-all shadow-md active:scale-95 group">
             <Upload className="w-4 h-4" />
             {isSidebarOpen && <span className="font-bold text-[9px] uppercase tracking-widest">Ingest</span>}
-            <input type="file" className="hidden" multiple accept=".zip,.pdf" onChange={handleFileUpload} />
+            <input type="file" className="hidden" multiple accept=".zip,.pdf,.mp4,.mov,.mp3,.wav" onChange={handleFileUpload} />
           </label>
         </div>
       </aside>
@@ -891,6 +917,15 @@ function DocumentDetailView({ state, setState, shareToX }: any) {
                     <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Nexus Lineage</div>
                     <div className="text-[10px] font-bold text-slate-300 uppercase truncate">{(doc.lineage || []).join(' > ')}</div>
                   </div>
+                  <div className="flex-1 p-3 bg-slate-950/40 border border-slate-800 rounded-lg">
+                    <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Confidence</div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${doc.analysis?.confidenceScore || 0}%` }}></div>
+                      </div>
+                      <div className="text-[10px] font-bold text-emerald-500">{doc.analysis?.confidenceScore || 0}%</div>
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <section>
@@ -912,6 +947,20 @@ function DocumentDetailView({ state, setState, shareToX }: any) {
                     </div>
                   </section>
                 </div>
+                {doc.analysis?.timelineEvents && doc.analysis.timelineEvents.length > 0 && (
+                  <section>
+                    <h4 className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-2"><div className="w-4 h-px bg-indigo-600"></div> Constructed Timeline</h4>
+                    <div className="space-y-2 border-l border-slate-800 ml-2 pl-4 relative">
+                      {doc.analysis.timelineEvents.map((t: any, i: number) => (
+                        <div key={i} className="relative">
+                          <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-900 border border-indigo-500"></div>
+                          <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">{t.date}</div>
+                          <div className="text-xs font-bold text-slate-300">{t.event}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 <section>
                   <h4 className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-2"><div className="w-4 h-px bg-indigo-600"></div> Findings</h4>
                   <div className="grid gap-2">
@@ -965,7 +1014,7 @@ function DocumentDetailView({ state, setState, shareToX }: any) {
           </div>
         </aside>
       </div>
-    </div>
+    </div >
   );
 }
 
@@ -1052,32 +1101,98 @@ function POIView({ state, setState, shareToX }: any) {
 
 function AgentChatView({ state, chatInput, setChatInput, handleChat }: any) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [state.chatHistory]);
+  const [isThinking, setIsThinking] = useState(false);
+
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [state.chatHistory, isThinking]);
+
+  const onSend = async (override?: string) => {
+    setIsThinking(true);
+    await handleChat(override);
+    setIsThinking(false);
+  };
+
+  const SUGGESTIONS = [
+    { label: "Briefing", prompt: "Summarize all high priority findings across these documents." },
+    { label: "Key Targets", prompt: "List all high-value individuals and their roles." },
+    { label: "Timeline", prompt: "Construct a chronological timeline of all major events." },
+    { label: "Identify Risks", prompt: "Flag any potential risks, illegal activities, or conflicts of interest." }
+  ];
+
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto pb-4">
-      <div className="mb-4 flex items-center gap-3 bg-indigo-600/10 border border-indigo-500/20 p-4 rounded-xl">
-        <div className="p-2 bg-indigo-600 rounded-md shrink-0"><BrainCircuit className="w-5 h-5 text-white" /></div>
-        <div><h3 className="font-black text-sm uppercase tracking-tighter text-white">NEXUS Agent</h3><p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest">{state.documents.filter(d => d.status === 'completed').length} finalized fragments synced</p></div>
+      <div className="mb-4 flex items-center justify-between bg-indigo-600/10 border border-indigo-500/20 p-4 rounded-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-600 rounded-md shrink-0"><BrainCircuit className="w-5 h-5 text-white" /></div>
+          <div><h3 className="font-black text-sm uppercase tracking-tighter text-white">NEXUS Agent</h3><p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest">{state.documents.filter((d: any) => d.status === 'completed').length} finalized fragments synced</p></div>
+        </div>
+        <button onClick={() => { if (confirm("Clear Agent Memory?")) window.location.reload(); }} className="text-[9px] text-slate-500 hover:text-white uppercase font-black tracking-widest transition-colors">Reset Link</button>
       </div>
+
       <div ref={scrollRef} className="flex-1 space-y-4 mb-4 pr-2 overflow-y-auto custom-scrollbar">
         {state.chatHistory.map((msg: any, i: number) => (
           <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div className={`max-w-[85%] p-4 rounded-xl shadow-md border relative ${msg.role === 'user' ? 'bg-indigo-600 border-indigo-400 text-white rounded-tr-none' : msg.role === 'system' ? 'bg-slate-900/40 text-slate-500 italic text-[8px] border-slate-800 uppercase tracking-widest' : 'bg-slate-900 border-slate-800 rounded-tl-none'}`}>
               <div className="text-[11px] leading-relaxed whitespace-pre-wrap font-bold uppercase tracking-tight">{msg.content}</div>
+              {msg.references && (
+                <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-2">
+                  {msg.references.map((ref: string, idx: number) => (
+                    <span key={idx} className="bg-black/30 px-1.5 py-0.5 rounded text-[8px] font-mono text-indigo-200 flex items-center gap-1"><FileText className="w-2 h-2" /> {ref}</span>
+                  ))}
+                </div>
+              )}
             </div>
+            <div className="mt-1 text-[8px] text-slate-600 font-mono">{msg.role === 'user' ? 'OPERATOR' : 'NEXUS NODE'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
           </div>
         ))}
+        {isThinking && (
+          <div className="flex flex-col items-start animate-pulse">
+            <div className="max-w-[85%] p-4 rounded-xl bg-slate-900/40 border border-slate-800 rounded-tl-none">
+              <div className="flex items-center gap-2 text-indigo-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Analyzing Vector Space...</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="flex gap-2 bg-slate-900/60 p-2 rounded-xl border border-slate-800 focus-within:border-indigo-600 transition-all shadow-xl backdrop-blur-3xl">
-        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleChat()} placeholder="Command agent..." className="flex-1 bg-transparent px-3 py-2 outline-none text-[10px] font-bold uppercase tracking-tight placeholder:text-slate-600" />
-        <button onClick={handleChat} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg font-black transition-all shadow-md uppercase text-[9px] tracking-widest text-white active:scale-95">Inference</button>
+
+      <div className="space-y-3">
+        {state.chatHistory.length === 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {SUGGESTIONS.map((s, i) => (
+              <button key={i} onClick={() => onSend(s.prompt)} className="whitespace-nowrap px-3 py-1.5 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 rounded-full text-[9px] font-bold text-slate-300 uppercase tracking-wide transition-all hover:text-white hover:border-indigo-500/50 flex items-center gap-2">
+                <Zap className="w-3 h-3 text-indigo-500" /> {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 bg-slate-900/60 p-2 rounded-xl border border-slate-800 focus-within:border-indigo-600 transition-all shadow-xl backdrop-blur-3xl relative">
+          <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-indigo-600 rounded-r opacity-0 transition-opacity peer-focus-within:opacity-100"></div>
+          <input
+            type="text"
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onSend()}
+            disabled={isThinking}
+            placeholder={isThinking ? "Processing..." : "Command agent..."}
+            className="peer flex-1 bg-transparent px-3 py-2 outline-none text-[10px] font-bold uppercase tracking-tight placeholder:text-slate-600 disabled:opacity-50"
+          />
+          <button
+            onClick={() => onSend()}
+            disabled={isThinking}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 px-4 py-2 rounded-lg font-black transition-all shadow-md uppercase text-[9px] tracking-widest text-white active:scale-95 flex items-center gap-2"
+          >
+            {isThinking ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />}
+            Inference
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 function SettingsView({ state, setState, showToast, resetArchive }: any) {
-  const GEMINI_PRESETS = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro'];
+  const GEMINI_PRESETS = ['gemini-3.0-pro-preview', 'gemini-3.0-flash-preview', 'gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-1.5-pro', 'gemini-1.5-pro-002', 'gemini-1.5-flash', 'gemini-1.5-flash-002'];
   const OPENROUTER_PRESETS = ['meta-llama/llama-3-8b-instruct:free', 'anthropic/claude-3-haiku', 'openai/gpt-4o-mini', 'google/gemini-2.0-flash-001'];
 
   // Local UI state for better control over custom model IDs
@@ -1314,7 +1429,7 @@ function AnalyticsView({ state, setState }: any) {
   const locations: Record<string, number> = {};
   const orgs: Record<string, number> = {};
   const politicalFigures: Map<string, { count: number, roles: Set<string> }> = new Map();
-  const keywords = ['senat', 'gov', 'president', 'minister', 'ambassador', 'judge', 'general', 'mayor', 'rep', 'sec', 'official', 'prosecutor', 'politician', 'congress', 'prince', 'duke', 'royal', 'chief'];
+  const keywords = ['senat', 'gov', 'president', 'minister', 'ambassador', 'judge', 'general', 'mayor', 'rep', 'sec', 'official', 'prosecutor', 'politician', 'congress', 'prince', 'duke', 'royal', 'chief', 'actor', 'actress', 'star', 'celebrity', 'model', 'singer', 'musician', 'producer', 'director', 'magnate', 'tycoon', 'billionaire', 'founder', 'ceo', 'vip'];
 
   state.documents.forEach((d: any) => {
     if (d.status === 'completed' && d.analysis) {
@@ -1543,7 +1658,42 @@ function AnalyticsView({ state, setState }: any) {
         </div>
       </div>
 
-      {/* Verified Individuals Ledger */}
+
+
+      {/* Global Master Timeline */}
+      <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
+        <h3 className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Calendar className="w-3 h-3" /> Master Event Timeline</h3>
+        <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-4 snap-x">
+          {(() => {
+            const allEvents = state.documents
+              .flatMap((d: any) => (d.analysis?.timelineEvents || []).map((t: any) => ({ ...t, docName: d.name, docId: d.id })))
+              .sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+            if (allEvents.length === 0) return <div className="w-full text-center py-6 text-slate-600 italic text-xs uppercase tracking-widest">No chronological data extracted.</div>;
+
+            return allEvents.map((evt: any, i: number) => (
+              <div key={i} className="min-w-[200px] max-w-[200px] snap-start relative group flex-shrink-0">
+                <div className="w-2 h-2 bg-amber-600 rounded-full border border-slate-900 absolute -bottom-[21px] left-4 z-10"></div>
+                <div className="border-l-2 border-slate-800/50 pl-4 py-2 hover:border-amber-600/50 transition-colors h-full flex flex-col">
+                  <div className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">{evt.date}</div>
+                  <div className="text-[10px] font-bold text-slate-300 leading-tight mb-2 line-clamp-3 group-hover:line-clamp-none transition-all">{evt.event}</div>
+                  <div onClick={() => setState((p: any) => ({ ...p, view: 'document_detail', selectedDocId: evt.docId }))} className="mt-auto flex items-center gap-1 text-[8px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-indigo-400">
+                    <FileText className="w-2.5 h-2.5" /> Source
+                  </div>
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+        <div className="h-px bg-slate-800 w-full mt-[-6px]"></div>
+      </div>
+
+      {/* Network Graph */}
+      <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl mb-6">
+        <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Share2 className="w-3 h-3" /> Entity Constellation</h3>
+        <EntityGraph data={state.pois} />
+      </div>
+
       <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2"><Users className="w-3 h-3" /> Verified Individuals Ledger</h3>
@@ -1623,7 +1773,7 @@ function AnalyticsView({ state, setState }: any) {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
