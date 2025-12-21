@@ -27,6 +27,7 @@ Gain broad situational awareness over your document set:
 - **Search & Filter**: Instantly filter the Verified Ledger by name or role to find specific subjects in large datasets.
 - **Dossier Mode**: Click any verified name to inspect specific mentions, context, and signal strength across all documents.
 - **Geographic & Corporate Matrix**: Visualize hotspots and organizational structures automatically extracted from the text.
+- **Master Event Timeline**: A horizontal, chronologically sorted visualization of all extracted events across the entire corpus.
 - **Premium Case Files**: Export a professional, print-ready HTML dossier containing all verified intelligence, formatted for official use.
 
 ### 🖥️ Dynamic Local Nodes & Swarm
