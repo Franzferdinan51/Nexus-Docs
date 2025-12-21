@@ -71,8 +71,8 @@ A premium command center for interacting with your data:
 *   **Policy Evolution**: Trace how specific terminology (e.g., "Climate Change") evolved across decades of government whitepapers.
 
 ### 🌐 Human Rights Monitoring
-*   **Field Report Aggregation**: Ingest messy field notes and photos to identify repeat perpetrators or locations of interest across different regions.
-*   **Verification**: Cross-reference user-submitted footage with satellite data or known geographic landmarks using multimodal analysis.
+*   **Field Report Aggregation**: Ingest messy field notes and scanned witness testimonies to identify repeat perpetrators or locations of interest.
+*   **Visual Documentation**: Archive and analyze photo evidence of damage or locations, linking them to specific dates and events in the timeline.
 
 ---
 
@@ -146,7 +146,7 @@ Access the dashboard at `http://localhost:5173`.
 
 ## 📅 Roadmap
 - [ ] **Graph Visualization**: Interactive node-link diagram of all verified entities.
-- [ ] **Voice Memos**: Transcribe and analyze audio notes attached to investigations.
+- [ ] **Native Video & Audio**: Support for MP4/MP3 ingestion to analyze bodycam footage and wiretaps.
 - [ ] **Offline OCR**: Integrate Tesseract.js for purely local image text extraction.
 
 ---
