@@ -80,7 +80,7 @@ Task:
 3. If NOT found, return empty lists.
 4. DO NOT hallucinate. If the name is not there, say so.
 
-Return JSON matching the schema:
+Return valid JSON. IMPORTANT: Escape all double quotes within strings.
 {
   "summary": "Verification result for {{TARGET}}...",
   "entities": [],
@@ -94,25 +94,23 @@ Return JSON matching the schema:
 `;
 
 const SYSTEM_PROMPT = `
-TASK: ANALYZE EPSTEIN CASE FILE DOCUMENT WITH HIGH PRECISION.
+TASK: PERFORM FORENSIC ANALYSIS OF THE PROVIDED DOCUMENT/IMAGE.
 
-CRITICAL RULES:
-- EXTRACT ONLY EXPLICITLY STATED ENTITIES. DO NOT GUESS or INFER names.
-- If a name is illegible or partial, ignore it.
-- Role descriptions must be specific (e.g. "Pilot for JE", "Victim", "Accountant") not vague ("Woman").
-- Eliminate hallucinations: If not in text/image, do not list it.
+CRITICAL INSTRUCTIONS:
+- IDENTIFY: Visually recognize famous individuals, political figures, or known actors if present.
+- INFER: Use context clues (badges, nameplates, captions, uniforms) to deduce identities.
+- DESCRIBE: If a person is unknown, provide specific details (e.g., "Man with facial scar," "Woman in pilot uniform") instead of generic labels.
+- READ: extract all legible text, names, dates, and locations.
 
-1. SUMMARY: Provide a precise summary.
-2. ENTITIES: List EVERY person explicitly named. Flag "isFamous: true" for high-profile individuals (political figures, celebrities, billionaires).
-3. POIs: Specifically list any "People of Interest" found (e.g., G. Maxwell, J. Epstein).
-4. KEY INSIGHTS: Direct revelations backed by text.
-5. IMAGES: If image data is provided, describe what is seen (e.g., "Photograph of person X", "Handwritten ledger").
-6. LOCATIONS: List specific places mentioned (cities, islands, addresses).
-7. ORGANIZATIONS: List companies, banks, or groups mentioned.
-8. VISUAL OBJECTS: If images are present, list distinctive objects (e.g., "Safe", "Passport", "Aircraft").
-9. EVIDENCE TYPE: Classify the document (e.g., "Flight Log", "Email", "Invoice", "Testimony", "Court Filing", "Photograph").
+1. SUMMARY: Concise overview of who is in the image/document and what is happening.
+2. ENTITIES: List EVERY person found. Use "Visually Identified" in context if recognized by face.
+3. POIs: Flag any high-profile targets (Epstein, Maxwell, Politicians, Royals).
+4. KEY INSIGHTS: Connect visual elements to potential evidence (e.g., "Meeting suggests close association").
+5. VISUAL OBJECTS: distinctive items (Safe, Aircraft Tail Number, Passport).
+6. EVIDENCE TYPE: e.g., "Surveillance Photo", "Flight Log", "Passport Scan".
 
-Respond with a JSON object containing:
+Respond with a valid JSON object. IMPORTANT: Escape all double quotes within strings.
+Containing:
 - summary (string)
 - entities (array of objects with name, role, context, isFamous)
 - keyInsights (array of strings)
@@ -125,7 +123,7 @@ Respond with a JSON object containing:
 - evidenceType (string)
 `;
 
-export async function analyzeWithLMStudio(text: string, images: string[], endpoint: string, verificationTarget?: string, requestedModelId?: string): Promise<DocumentAnalysis | null> {
+export async function analyzeWithLMStudio(text: string, images: string[], endpoint: string, verificationTarget?: string, requestedModelId?: string, useSearch: boolean = false): Promise<DocumentAnalysis | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 86400000); // 24 hour timeout for massive batch runs
 
@@ -174,6 +172,10 @@ export async function analyzeWithLMStudio(text: string, images: string[], endpoi
         model: modelId,
         messages: [
           {
+            role: "system",
+            content: "You are a helpful AI assistant that outputs strictly valid JSON."
+          },
+          {
             role: "user",
             content: content
           }
@@ -194,20 +196,36 @@ export async function analyzeWithLMStudio(text: string, images: string[], endpoi
     const data = await response.json();
     const responseContent = data.choices?.[0]?.message?.content || "";
 
+    // Clean the response
+    let cleanedContent = responseContent.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+
+    // Remove markdown code blocks if present
+    const codeBlockMatch = cleanedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      cleanedContent = codeBlockMatch[1].trim();
+    }
+
     // Try to extract JSON from the response
     let parsed: any = null;
     try {
       // Try direct parse first
-      parsed = JSON.parse(responseContent);
-    } catch {
-      // Try to find JSON in the response (markdown block or raw)
-      const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
+      parsed = JSON.parse(cleanedContent);
+    } catch (e) {
+      // Try to find the outermost JSON object if direct parse fails
+      const firstBrace = cleanedContent.indexOf('{');
+      const lastBrace = cleanedContent.lastIndexOf('}');
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const potentialJson = cleanedContent.substring(firstBrace, lastBrace + 1);
         try {
-          parsed = JSON.parse(jsonMatch[0]);
-        } catch {
-          console.error("Failed to parse JSON from response:", responseContent);
+          parsed = JSON.parse(potentialJson);
+        } catch (innerError) {
+          console.error("Failed to parse extracted JSON:", potentialJson);
         }
+      }
+
+      if (!parsed) {
+        console.error("Failed to parse JSON from response:", responseContent);
       }
     }
 
