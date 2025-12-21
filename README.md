@@ -17,7 +17,7 @@ NexusDocs orchestrates multiple AI models working in concert:
 ### ⚡ Async Verification Pipeline ("Dual-Check")
 A non-blocking verification system designed for speed and accuracy:
 1.  **Fast Lane**: Your primary (fast/local) model scans documents rapidly.
-2.  **Smart Routing**: If a "High Value Target" (e.g., Politician, VIP) is detected, the document is marked as **"VERIFYING"** (Purple Badge).
+2.  **Smart Routing**: If a "High Priority Individual" (e.g., Politician, VIP) is detected, the document is marked as **"VERIFYING"** (Purple Badge).
 3.  **Background Verification**: A dedicated background agent picks up the task and uses your **Preferred Verifier** (e.g., Gemini with Google Search or a larger Local Model) to double-check the finding.
  *Result: You get the throughput of a small model with the accuracy of a large model.*
 

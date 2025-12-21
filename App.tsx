@@ -1373,13 +1373,13 @@ function AnalyticsView({ state, setState }: any) {
           
           <div class="metrics">
             <div class="metric"><div class="metric-val">${state.documents.length}</div><div class="metric-label">Documents Analyzed</div></div>
-            <div class="metric"><div class="metric-val">${state.pois.length}</div><div class="metric-label">Verified Targets</div></div>
+            <div class="metric"><div class="metric-val">${state.pois.length}</div><div class="metric-label">Verified Individuals</div></div>
             <div class="metric"><div class="metric-val">${Object.keys(orgs).length}</div><div class="metric-label">Unique Entities</div></div>
           </div>
 
           <h2>Political & Government Matrix</h2>
           <table>
-            <thead><tr><th>Target Name</th><th>Primary Role</th><th>Ref Count</th></tr></thead>
+            <thead><tr><th>Subject Name</th><th>Primary Role</th><th>Ref Count</th></tr></thead>
             <tbody>
               ${sortedPolitical.map(p => `<tr><td style="font-weight:600">${p.name}</td><td>${p.role || 'Unknown'}</td><td>${p.count}</td></tr>`).join('')}
             </tbody>
@@ -1448,7 +1448,7 @@ function AnalyticsView({ state, setState }: any) {
         <div className="space-y-4">
           <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
             <div className="text-5xl font-black text-indigo-500 drop-shadow-2xl">{state.pois.length}</div>
-            <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Verified Targets</div>
+            <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Verified Individuals</div>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
             <div className="text-5xl font-black text-slate-200 drop-shadow-2xl">{Object.keys(locations).length}</div>
@@ -1486,7 +1486,7 @@ function AnalyticsView({ state, setState }: any) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 text-[8px] uppercase tracking-widest text-slate-500">
-                <th className="p-2 font-black">Target Name</th>
+                <th className="p-2 font-black">Subject Name</th>
                 <th className="p-2 font-black">Classification</th>
                 <th className="p-2 font-black text-right">Reference Count</th>
                 <th className="p-2 font-black text-right">Action</th>
