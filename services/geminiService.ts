@@ -179,27 +179,39 @@ export async function ragChat(query: string, contextDocs: any[], history: any[],
   const model = genAI.getGenerativeModel({ model: modelName });
 
   const contextText = contextDocs.length > 0
-    ? contextDocs.map(d => `SOURCE: ${d.name}\nANALYSIS: ${d.analysis?.summary}\nKEY FINDINGS: ${d.analysis?.keyInsights.join('; ')}\nENTITIES: ${d.analysis?.entities.map((e: any) => e.name).join(', ')}`).join('\n\n---\n\n')
-    : "No direct document matches found in the active database. Answer based on general knowledge but specify that the local archive did not contain specific hits.";
+    ? contextDocs.map(d => `
+=== DOCUMENT START ===
+ID: ${d.id}
+FILENAME: ${d.name}
+DATE: ${d.analysis?.documentDate || 'Unknown'}
+SUMMARY: ${d.analysis?.summary}
+ENTITIES: ${d.analysis?.entities.map((e: any) => `${e.name} (${e.role})`).join(', ')}
+FULL EXTRACTED CONTENT:
+${d.content ? d.content.substring(0, 50000) : "[Content Missing or Image Only]"}
+=== DOCUMENT END ===
+`).join('\n\n')
+    : "No specific documents matched the query keywords. Answer based on general knowledge, but explicitly state that no local files were referenced.";
 
-  const historyText = history.slice(-6).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+  // Extended history for better conversation context
+  const historyText = history.slice(-20).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
   const prompt = `
-    SYSTEM: You are the NEXUS Investigative Agent. You have access to a repository of Epstein case files. 
-    Your tone is clinical, objective, and thorough. 
+    SYSTEM: You are the NEXUS Investigative Agent (Version 2.0).
+    You have DIRECT ACCESS to the user's secure document archive.
     
-    ARCHIVE CONTEXT (Extracted from user's uploaded files):
+    YOUR MANDATE:
+    1. DEEP ANALYSIS: You must read the "FULL EXTRACTED CONTENT" of the provided documents, not just the summaries.
+    2. SYNTHESIS: Connect dots between different documents. If Document A mentions "Pilot X" and Document B mentions "Pilot X flew to Island", combine these facts.
+    3. CITATIONS: You MUST cite your sources. When asserting a fact found in a file, append [Filename.pdf].
+    4. ACCURACY: Do not hallucinate. If the content is not in the provided text, say "I cannot find this in the current archive."
+    
+    ARCHIVE CONTEXT (RAG DATA):
     ${contextText}
     
-    CHAT HISTORY:
+    CONVERSATION HISTORY:
     ${historyText}
     
-    TASK: 
-    Use the ARCHIVE CONTEXT as your primary source of truth. If specific names or dates are mentioned in the query, look for them in the context. 
-    If the context provided allows for a definitive answer, provide it and cite the SOURCE name.
-    If you are drawing from general knowledge because the archive is insufficient, explicitly state "Based on external data (not found in current archive)..."
-    
-    USER QUERY: ${query}
+    CURRENT USER QUERY: ${query}
   `;
 
   const result = await model.generateContent(prompt);

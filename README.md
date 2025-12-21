@@ -21,31 +21,30 @@ A non-blocking verification system designed for speed and accuracy:
 3.  **Background Verification**: A dedicated background agent picks up the task and uses your **Preferred Verifier** (e.g., Gemini with Google Search or a larger Local Model) to double-check the finding.
  *Result: You get the throughput of a small model with the accuracy of a large model.*
 
-### 📊 Deep Analytics & Verified Ledger
+### 📊 Deep Analytics & Visual Intelligence
 Gain broad situational awareness over your document set:
-- **Verified Individuals Ledger**: A live, sorted ledger of every entity confirmed by your agents, ranked by reference count.
-- **Search & Filter**: Instantly filter the Verified Ledger by name or role to find specific subjects in large datasets.
-- **Dossier Mode**: Click any verified name to inspect specific mentions, context, and signal strength across all documents.
-- **Geographic & Corporate Matrix**: Visualize hotspots and organizational structures automatically extracted from the text.
-- **Master Event Timeline**: A horizontal, chronologically sorted visualization of all extracted events across the entire corpus.
-- **Premium Case Files**: Export a professional, print-ready HTML dossier containing all verified intelligence, formatted for official use.
+- **Entity Constellation (v2)**: A physics-based mindmap visualization (NotebookLM style) with red-string connections and interactive pan/zoom.
+- **Verified Individuals Ledger**: A live, sorted ledger of every entity confirmed by your agents.
+- **Geographic & Corporate Matrix**: Visualize hotspots and organizational structures.
+- **Master Event Timeline**: A horizontal, chronologically sorted visualization of all extracted events.
 
 ### 🖥️ Dynamic Local Nodes & Swarm
 Full support for **LM Studio** and local inference with advanced capabilities:
-- **JSON Enforcement**: Automatically "helps" local models output structured data by injecting strict system prompts, ensuring compatibility with the swarming engine.
-- **Swarm Consensus**: When "Parallel Swarm" is enabled, local models working alongside cloud models vote on findings. Verified entities are marked with `[SWARM CONFIRMED]`.
-- **Multi-Port Swarming**: Connect multiple local instances (e.g., Port 1234 and Port 1235) to simulate a local cluster.
+- **Quad-Core Swarm**: Connect up to **4 distinct local models** (Ports `1234`, `1235`, etc.) to run simultaneously.
+- **Swarm Consensus**: Agents vote on findings. Verified entities are marked with `[SWARM CONFIRMED]`.
+- **JSON Enforcement**: Automatically "helps" local models output structured data by injecting strict system prompts.
 
 ### 🕵️ Agent Intelligence (v2.0)
 The core agent has been upgraded with cognitive enhancements:
 - **Chain of Thought (CoT)**: System prompts now enforce "step-by-step" reasoning to reduce hallucinations.
 - **Confidence Scoring**: Every document is assigned a 0-100% confidence score based on extraction clarity.
 - **Timeline Reconstruction**: The agent automatically extracts a chronological list of events (`Date` -> `Event`) from case files.
-### 💬 Advanced Chat Interface
+### 💬 Deep Chat (v2.0)
 A premium command center for interacting with your data:
-- **One-Tap Suggestions**: Rapidly launch "Briefings", "Risk Assessments", or "Entity Lists" with suggestion chips.
-- **Thinking State**: Visual pulse indicator ("Analyzing Vector Space...") for real-time feedback.
-- **Terminal UI**: Enhanced aesthetic for maximum readability and "hacker" feel.
+- **Full Context Access**: The agent now reads the **full content** (not just summaries) of up to 20 documents simultaneously.
+- **Citations**: Claims are backed by precise filenames `[Evidence.pdf]`.
+- **Thinking State**: Visual pulse indicator and terminal-style output.
+- **One-Tap Suggestions**: Rapidly launch "Briefings", "Risk Assessments", or "Entity Lists".
 
 ---
 
@@ -113,8 +112,8 @@ Access the dashboard at `http://localhost:5173`.
 ### Enabling "Dual-Check" Mode
 1.  Go to **Settings** (Gear Icon).
 2.  Enable **"Dual Check Mode"**.
-3.  Select your **"Preferred Verifier"** (e.g., "Local Model B" or "Gemini").
-    *   *Tip: Use a small model for the main loop and a large/reasoning model for the verifier.*
+3.  Select your **"Preferred Verifier"** (e.g., "Local Model D").
+    *   *Independent Operation*: Your verifier can be disabled in the main Swarm list (saving resources) but will auto-wake to verify VIP targets.
 
 ### Connecting LM Studio
 1.  Start LM Studio and load a model.
@@ -141,7 +140,8 @@ Access the dashboard at `http://localhost:5173`.
 
 **Dual Check Not Triggering?**
 - Verify the "Dual Check Mode" toggle is ON in Settings.
-- Ensure the primary model is finding entities classified as "High Priority" (Politicians, Executives).
+- Ensure the primary model is finding entities classified as "High Priority".
+- Check if your Independent Verifier has a valid Endpoint/Key.
 
 ---
 

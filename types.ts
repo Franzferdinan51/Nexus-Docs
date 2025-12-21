@@ -44,12 +44,14 @@ export interface POI {
 }
 
 export interface ModelConfig {
-  priority: ('gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2')[];
+  priority: ('gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2' | 'lmstudio3' | 'lmstudio4')[];
   enabled: {
     gemini: boolean;
     openrouter: boolean;
     lmstudio: boolean;
     lmstudio2: boolean;
+    lmstudio3: boolean;
+    lmstudio4: boolean;
   };
   geminiKey: string;
   geminiModel: string;
@@ -59,8 +61,12 @@ export interface ModelConfig {
   lmStudioModel: string;
   lmStudioEndpoint2: string;
   lmStudioModel2: string;
+  lmStudioEndpoint3: string;
+  lmStudioModel3: string;
+  lmStudioEndpoint4: string;
+  lmStudioModel4: string;
   dualCheckMode: boolean; // Enable cross-verification
-  preferredVerifier: 'auto' | 'gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2';
+  preferredVerifier: 'auto' | 'gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2' | 'lmstudio3' | 'lmstudio4';
   parallelAnalysis: boolean; // Enable parallel execution
 }
 

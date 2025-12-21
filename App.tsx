@@ -30,12 +30,22 @@ export default function App() {
       // Documents loaded from IDB later
       // Migration for Multi-Local Node Support
       const safeConfig = parsed.config || {};
-      if (safeConfig.enabled?.lmstudio2 === undefined) {
-        safeConfig.enabled = { ...(safeConfig.enabled || {}), lmstudio2: false, lmstudio: safeConfig.enabled?.lmstudio ?? false };
-        safeConfig.priority = [...new Set([...(safeConfig.priority || ['gemini', 'openrouter', 'lmstudio']), 'lmstudio2'])];
+      if (safeConfig.enabled?.lmstudio2 === undefined || safeConfig.enabled?.lmstudio3 === undefined) {
+        safeConfig.enabled = {
+          ...(safeConfig.enabled || {}),
+          lmstudio2: false,
+          lmstudio3: false,
+          lmstudio4: false,
+          lmstudio: safeConfig.enabled?.lmstudio ?? false
+        };
+        safeConfig.priority = [...new Set([...(safeConfig.priority || ['gemini', 'openrouter', 'lmstudio']), 'lmstudio2', 'lmstudio3', 'lmstudio4'])];
         safeConfig.lmStudioModel = safeConfig.lmStudioModel || '';
         safeConfig.lmStudioModel2 = safeConfig.lmStudioModel2 || '';
         safeConfig.lmStudioEndpoint2 = safeConfig.lmStudioEndpoint2 || 'http://127.0.0.1:1234';
+        safeConfig.lmStudioModel3 = safeConfig.lmStudioModel3 || '';
+        safeConfig.lmStudioEndpoint3 = safeConfig.lmStudioEndpoint3 || 'http://127.0.0.1:1234';
+        safeConfig.lmStudioModel4 = safeConfig.lmStudioModel4 || '';
+        safeConfig.lmStudioEndpoint4 = safeConfig.lmStudioEndpoint4 || 'http://127.0.0.1:1234';
         safeConfig.preferredVerifier = safeConfig.preferredVerifier || 'auto';
       }
       // Ongoing safeguard: Deduplicate priority list on every load to fix existing corrupted states
@@ -149,6 +159,8 @@ export default function App() {
     if (provider === 'openrouter') return analyzeWithOpenRouter(t, i, cfg.openRouterKey, cfg.openRouterModel, verificationTarget);
     if (provider === 'lmstudio') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint, verificationTarget, cfg.lmStudioModel, useSearch);
     if (provider === 'lmstudio2') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint2, verificationTarget, cfg.lmStudioModel2, useSearch);
+    if (provider === 'lmstudio3') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint3, verificationTarget, cfg.lmStudioModel3, useSearch);
+    if (provider === 'lmstudio4') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint4, verificationTarget, cfg.lmStudioModel4, useSearch);
     throw new Error(`Unknown provider ${provider}`);
   }, []);
 
@@ -370,7 +382,7 @@ export default function App() {
 
       if (config.dualCheckMode && highValueTarget) {
         let verifier = '';
-        if (config.preferredVerifier && config.preferredVerifier !== 'auto' && config.enabled[config.preferredVerifier]) {
+        if (config.preferredVerifier && config.preferredVerifier !== 'auto') {
           verifier = config.preferredVerifier;
         } else {
           const activeChain = config.priority.filter(p => config.enabled[p]);
@@ -525,7 +537,7 @@ export default function App() {
           if ((doc.analysis?.entities || []).some((e: any) => e.name.toLowerCase().includes(term))) score += 20;
         });
         return { doc, score };
-      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.doc);
+      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 20).map(x => x.doc);
 
       const chatModel = state.config.enabled.gemini ? state.config.geminiModel : 'gemini-1.5-flash';
       const response = await ragChat(text, relevantDocs, state.chatHistory, chatModel);
@@ -1250,7 +1262,7 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
                   </button>
                   <div className="flex-1 font-black text-[10px] uppercase tracking-widest text-white flex items-center gap-2">
                     <span className="text-slate-500">#{i + 1}</span>
-                    {p === 'lmstudio' ? 'Local Model A' : p === 'lmstudio2' ? 'Local Model B' : p}
+                    {p === 'lmstudio' ? 'Local Model A' : p === 'lmstudio2' ? 'Local Model B' : p === 'lmstudio3' ? 'Local Model C' : p === 'lmstudio4' ? 'Local Model D' : p}
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     <button onClick={() => movePriority(i, -1)} className="p-1 hover:bg-slate-800 rounded text-slate-400"><ChevronRight className="w-3 h-3 -rotate-90" /></button>
@@ -1281,6 +1293,8 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
                     <option value="openrouter">OpenRouter</option>
                     <option value="lmstudio">Model A</option>
                     <option value="lmstudio2">Model B</option>
+                    <option value="lmstudio3">Model C</option>
+                    <option value="lmstudio4">Model D</option>
                   </select>
                 </div>
               )}
@@ -1403,6 +1417,38 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
               <div className="space-y-1">
                 <label className="text-[7px] font-black uppercase text-slate-500">Model ID (Optional)</label>
                 <input type="text" placeholder="Auto-Load" className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] font-mono outline-none focus:border-indigo-500" value={localConfig.lmStudioModel2 || ''} onChange={e => setLocalConfig({ ...localConfig, lmStudioModel2: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className={`p-4 bg-slate-950/40 border border-slate-800 rounded-xl space-y-4 transition-all ${localConfig.enabled.lmstudio3 ? 'border-indigo-500/20' : 'grayscale opacity-30 pointer-events-none'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-pink-500"></div><span className="text-[10px] font-black uppercase text-white">Local Model C</span></div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[7px] font-black uppercase text-slate-500">Endpoint</label>
+                <input type="text" className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] font-mono outline-none focus:border-indigo-500" value={localConfig.lmStudioEndpoint3 || ''} onChange={e => setLocalConfig({ ...localConfig, lmStudioEndpoint3: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[7px] font-black uppercase text-slate-500">Model ID</label>
+                <input type="text" placeholder="Auto" className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] font-mono outline-none focus:border-indigo-500" value={localConfig.lmStudioModel3 || ''} onChange={e => setLocalConfig({ ...localConfig, lmStudioModel3: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className={`p-4 bg-slate-950/40 border border-slate-800 rounded-xl space-y-4 transition-all ${localConfig.enabled.lmstudio4 ? 'border-indigo-500/20' : 'grayscale opacity-30 pointer-events-none'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-cyan-500"></div><span className="text-[10px] font-black uppercase text-white">Local Model D</span></div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[7px] font-black uppercase text-slate-500">Endpoint</label>
+                <input type="text" className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] font-mono outline-none focus:border-indigo-500" value={localConfig.lmStudioEndpoint4 || ''} onChange={e => setLocalConfig({ ...localConfig, lmStudioEndpoint4: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[7px] font-black uppercase text-slate-500">Model ID</label>
+                <input type="text" placeholder="Auto" className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] font-mono outline-none focus:border-indigo-500" value={localConfig.lmStudioModel4 || ''} onChange={e => setLocalConfig({ ...localConfig, lmStudioModel4: e.target.value })} />
               </div>
             </div>
           </div>
