@@ -71,10 +71,10 @@ export function EntityGraph({ data }: { data: any[] }) {
                         const dx = node.x - other.x;
                         const dy = node.y - other.y;
                         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-                        const minDist = 250;
+                        const minDist = 300; // Increased spacing for cards
 
                         if (dist < minDist) {
-                            const force = 1000 / (dist * dist + 10);
+                            const force = 1500 / (dist * dist + 10);
                             node.vx += (dx / dist) * force;
                             node.vy += (dy / dist) * force;
                         }
@@ -82,11 +82,12 @@ export function EntityGraph({ data }: { data: any[] }) {
 
                     const cx = (canvasRef.current?.width || 800) / 2;
                     const cy = (canvasRef.current?.height || 600) / 2;
-                    node.vx += (cx - node.x) * 0.0005;
-                    node.vy += (cy - node.y) * 0.0005;
+                    node.vx += (cx - node.x) * 0.002; // Stronger centering
+                    node.vy += (cy - node.y) * 0.002;
 
-                    node.vx *= 0.65;
-                    node.vy *= 0.65;
+                    // "Heavy" Physics - High Friction
+                    node.vx *= 0.85;
+                    node.vy *= 0.85;
 
                     if (node !== dragging) {
                         node.x += node.vx;
@@ -106,13 +107,25 @@ export function EntityGraph({ data }: { data: any[] }) {
             // Draw
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+            // Grid Background
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            const gridSize = 40 * scale;
+            const offX = offset.x % gridSize;
+            const offY = offset.y % gridSize;
+            ctx.beginPath();
+            for (let x = offX; x < ctx.canvas.width; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, ctx.canvas.height); }
+            for (let y = offY; y < ctx.canvas.height; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(ctx.canvas.width, y); }
+            ctx.stroke();
+
+
             // Apply Transform
             ctx.save();
             ctx.translate(offset.x, offset.y);
             ctx.scale(scale, scale);
 
-            // Draw Links
-            ctx.lineWidth = 2.5 / scale; // Thicker lines
+            // Draw Links (Bezier Curves)
+            ctx.lineWidth = 2.5 / scale;
             entities.forEach((node, i) => {
                 entities.forEach((other, j) => {
                     if (i <= j) return;
@@ -120,40 +133,71 @@ export function EntityGraph({ data }: { data: any[] }) {
                     const dy = node.y - other.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < 300) {
-                        const alpha = Math.max(0, (1 - (dist / 300)) * 0.3);
-                        ctx.strokeStyle = `rgba(239, 68, 68, ${alpha})`;
+                    if (dist < 400) {
+                        const alpha = Math.max(0, (1 - (dist / 400)) * 0.5);
+                        ctx.strokeStyle = node.type === 'political' || other.type === 'political'
+                            ? `rgba(244, 63, 94, ${alpha})` // Pink for high risk
+                            : `rgba(99, 102, 241, ${alpha})`; // Indigo for standard
+
                         ctx.beginPath();
                         ctx.moveTo(node.x, node.y);
-                        ctx.lineTo(other.x, other.y);
+
+                        // Bezier Control Points (S-Curve)
+                        const cx1 = node.x + (other.x - node.x) * 0.5;
+                        const cy1 = node.y;
+                        const cx2 = node.x + (other.x - node.x) * 0.5; // Vertical flow logic preferred, but radial here
+                        // For radial graph, simple curve:
+                        // Let's effectively make horizontal-ish connections curve more
+                        ctx.bezierCurveTo(node.x, node.y + (other.y - node.y) * 0.5, other.x, other.y - (other.y - node.y) * 0.5, other.x, other.y);
                         ctx.stroke();
                     }
                 });
             });
 
-            // Draw Nodes
+            // Draw Nodes (n8n Cards)
             entities.forEach(node => {
-                ctx.shadowColor = 'rgba(0,0,0,0.3)';
-                ctx.shadowBlur = 10;
-                ctx.shadowOffsetX = 2;
-                ctx.shadowOffsetY = 2;
+                // Shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetY = 4;
 
-                ctx.fillStyle = node.type === 'political' ? '#1c1917' : '#1e1b4b';
-                ctx.strokeStyle = node.type === 'political' ? '#fb7185' : '#818cf8';
+                const cardW = node.width;
+                const cardH = 40; // Fixed height for header-like look
 
+                // Card Body (Darker)
+                ctx.fillStyle = '#0f172a'; // Slate 900
                 ctx.beginPath();
-                ctx.roundRect(node.x - node.width / 2, node.y - node.height / 2, node.width, node.height, 18);
+                ctx.roundRect(node.x - cardW / 2, node.y - cardH / 2, cardW, cardH, 8);
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset shadow
+
+                // Card Header Stripe
+                ctx.fillStyle = node.type === 'political' ? '#be123c' : '#4338ca'; // Rose 700 / Indigo 700
+                ctx.beginPath();
+                // [topLeft, topRight, bottomRight, bottomLeft]
+                ctx.roundRect(node.x - cardW / 2, node.y - cardH / 2, 6, cardH, [8, 0, 0, 8]);
                 ctx.fill();
 
-                ctx.lineWidth = 1.5 / scale;
-                ctx.shadowBlur = 0;
+                // Border
+                ctx.strokeStyle = node === dragging ? '#fff' : '#334155';
+                ctx.lineWidth = node === dragging ? 2 / scale : 1 / scale;
+                ctx.beginPath();
+                ctx.roundRect(node.x - cardW / 2, node.y - cardH / 2, cardW, cardH, 8);
                 ctx.stroke();
 
+                // Text
                 ctx.fillStyle = '#f8fafc';
-                ctx.font = `500 ${11}px Inter, system-ui, sans-serif`;
-                ctx.textAlign = 'center';
+                ctx.font = `600 ${10}px Inter, sans-serif`;
+                ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(node.name, node.x, node.y);
+                const textX = node.x - cardW / 2 + 12;
+                ctx.fillText(node.name.length > 20 ? node.name.substring(0, 18) + '..' : node.name, textX, node.y);
+
+                // Little "Port" dots
+                ctx.fillStyle = '#64748b';
+                ctx.beginPath();
+                ctx.arc(node.x + cardW / 2 - 8, node.y, 3, 0, Math.PI * 2);
+                ctx.fill();
             });
 
             ctx.restore();
