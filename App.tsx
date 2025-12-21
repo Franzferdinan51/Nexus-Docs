@@ -17,7 +17,7 @@ import { EntityGraph } from './components/EntityGraph';
 declare const JSZip: any;
 
 const STORAGE_KEY = 'epstein_nexus_v17_state';
-const MAX_CONCURRENT_AGENTS = 2;
+const MAX_CONCURRENT_AGENTS = 4; // Increased to support Quad-Core Local Swarm
 
 // Global file store to keep blobs out of state (prevents serialization issues)
 let fileStore: Record<string, Blob> = {};
@@ -47,7 +47,7 @@ export default function App() {
         safeConfig.lmStudioModel4 = safeConfig.lmStudioModel4 || '';
         safeConfig.lmStudioEndpoint4 = safeConfig.lmStudioEndpoint4 || 'http://127.0.0.1:1234';
         safeConfig.preferredVerifier = safeConfig.preferredVerifier || 'auto';
-        safeConfig.swarmMode = safeConfig.swarmMode || 'consensus';
+        safeConfig.swarmMode = safeConfig.swarmMode || 'distributed';
       }
       // Ongoing safeguard: Deduplicate priority list on every load to fix existing corrupted states
       if (safeConfig.priority) safeConfig.priority = [...new Set(safeConfig.priority)];
@@ -86,7 +86,7 @@ export default function App() {
         openRouterModel: 'google/gemini-2.0-flash-001',
         parallelAnalysis: false,
         dualCheckMode: false,
-        swarmMode: 'consensus' as const
+        swarmMode: 'distributed' as const
       },
       chatHistory: [{ role: 'system', content: 'NEXUS Resilience Protocol Active.', timestamp: Date.now() }],
       processingQueue: [],
@@ -493,7 +493,6 @@ export default function App() {
         }
 
         const availableWorkers = workerPool.filter(p => !state.busyProviders.includes(p));
-
         if (availableWorkers.length > 0) {
           const nextWorker = availableWorkers[0];
           const nextDoc = state.processingQueue[0];
@@ -501,7 +500,7 @@ export default function App() {
           // Dispatch specific task
           const t = setTimeout(() => {
             processDocumentAgent(nextDoc, nextWorker);
-          }, 50);
+          }, 10);
           return () => clearTimeout(t);
         }
       }
@@ -510,7 +509,7 @@ export default function App() {
         const nextId = state.processingQueue[0];
         const t = setTimeout(() => {
           processDocumentAgent(nextId);
-        }, 50);
+        }, 10);
         return () => clearTimeout(t);
       }
     }
