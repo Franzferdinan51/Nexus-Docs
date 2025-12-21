@@ -12,6 +12,7 @@ import { analyzeDocument, ragChat } from './services/geminiService';
 import { analyzeWithLMStudio, testLMStudioConnection } from './services/lmStudioService';
 import { analyzeWithOpenRouter } from './services/openRouterService';
 import { saveDocument, getDocuments, clearDocuments } from './db';
+import { EntityGraph } from './components/EntityGraph';
 
 declare const JSZip: any;
 
@@ -135,7 +136,7 @@ export default function App() {
   }, []);
 
   // Hoisted Provider Runner (Accessible by both Agents)
-  const runProvider = useCallback(async (provider: string, t: string, i: string[], verificationTarget?: string, useSearch: boolean = false) => {
+  const runProvider = useCallback(async (provider: string, t: string, i: string[], verificationTarget?: string, useSearch: boolean = false, mediaItem?: { mimeType: string, data: string }) => {
     const cfg = stateRef.current.config;
     let modelIdLog = '';
     if (provider === 'gemini') modelIdLog = cfg.geminiModel;
@@ -144,7 +145,7 @@ export default function App() {
     else if (provider === 'lmstudio2') modelIdLog = cfg.lmStudioModel2 || 'Auto-Detect';
 
     console.log(`[Invoking ${provider}] Model: ${modelIdLog}`);
-    if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch);
+    if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch, (arguments[5] as any));
     if (provider === 'openrouter') return analyzeWithOpenRouter(t, i, cfg.openRouterKey, cfg.openRouterModel, verificationTarget);
     if (provider === 'lmstudio') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint, verificationTarget, cfg.lmStudioModel, useSearch);
     if (provider === 'lmstudio2') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint2, verificationTarget, cfg.lmStudioModel2, useSearch);
@@ -171,7 +172,24 @@ export default function App() {
 
     try {
       console.log(`Analyzing Fragment: ${doc.name}...`);
-      const { text, images } = await processPdf(blob);
+
+      let text = '';
+      let images: string[] = [];
+      let mediaItem: { mimeType: string, data: string } | undefined;
+
+      if (doc.type === 'video' || doc.type === 'audio') {
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        mediaItem = { mimeType: blob.type, data: b64.split(',')[1] };
+      } else {
+        const res = await processPdf(blob);
+        text = res.text;
+        images = res.images;
+      }
+
       let analysis: DocumentAnalysis | null = null;
       let lineage: string[] = [];
       let finalProvider = '';
@@ -188,7 +206,7 @@ export default function App() {
         showToast(`Running Parallel Swarm (${activeChain.length} nodes) on ${doc.name}...`);
 
         const results = await Promise.allSettled(activeChain.map(p =>
-          runProvider(p, text, images).then(res => ({ provider: p, data: res }))
+          runProvider(p, text, images, undefined, false, mediaItem).then(res => ({ provider: p, data: res }))
         ));
 
         // Log failures for debugging
@@ -245,7 +263,7 @@ export default function App() {
         for (const provider of activeChain) {
           try {
             lineage.push(provider);
-            analysis = await runProvider(provider, text, images);
+            analysis = await runProvider(provider, text, images, undefined, false, mediaItem);
 
             if (analysis && analysis.summary) {
               finalProvider = provider;
@@ -438,11 +456,18 @@ export default function App() {
             fileStore[id] = await (zipEntry as any).async('blob');
             newDocs.push({ id, name: filename, type: 'pdf', content: '', images: [], status: 'pending' });
             queueIds.push(id);
+            queueIds.push(id);
           }
         } else if (file.name.endsWith('.pdf')) {
           const id = Math.random().toString(36).substr(2, 9);
           fileStore[id] = file;
           newDocs.push({ id, name: file.name, type: 'pdf', content: '', images: [], status: 'pending' });
+          queueIds.push(id);
+        } else if (/\.(mp4|mov|avi|mp3|wav|m4a)$/i.test(file.name)) {
+          const id = Math.random().toString(36).substr(2, 9);
+          fileStore[id] = file;
+          const type = /\.(mp3|wav|m4a)$/i.test(file.name) ? 'audio' : 'video';
+          newDocs.push({ id, name: file.name, type: type as any, content: '', images: [], status: 'pending' });
           queueIds.push(id);
         }
       } catch (err) {
@@ -539,7 +564,7 @@ export default function App() {
           <label className="flex items-center justify-center gap-2 p-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer transition-all shadow-md active:scale-95 group">
             <Upload className="w-4 h-4" />
             {isSidebarOpen && <span className="font-bold text-[9px] uppercase tracking-widest">Ingest</span>}
-            <input type="file" className="hidden" multiple accept=".zip,.pdf" onChange={handleFileUpload} />
+            <input type="file" className="hidden" multiple accept=".zip,.pdf,.mp4,.mov,.mp3,.wav" onChange={handleFileUpload} />
           </label>
         </div>
       </aside>
@@ -1167,7 +1192,7 @@ function AgentChatView({ state, chatInput, setChatInput, handleChat }: any) {
 }
 
 function SettingsView({ state, setState, showToast, resetArchive }: any) {
-  const GEMINI_PRESETS = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro'];
+  const GEMINI_PRESETS = ['gemini-3.0-pro-preview', 'gemini-3.0-flash-preview', 'gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-1.5-pro', 'gemini-1.5-pro-002', 'gemini-1.5-flash', 'gemini-1.5-flash-002'];
   const OPENROUTER_PRESETS = ['meta-llama/llama-3-8b-instruct:free', 'anthropic/claude-3-haiku', 'openai/gpt-4o-mini', 'google/gemini-2.0-flash-001'];
 
   // Local UI state for better control over custom model IDs
@@ -1662,6 +1687,13 @@ function AnalyticsView({ state, setState }: any) {
         </div>
         <div className="h-px bg-slate-800 w-full mt-[-6px]"></div>
       </div>
+
+      {/* Network Graph */}
+      <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl mb-6">
+        <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Share2 className="w-3 h-3" /> Entity Constellation</h3>
+        <EntityGraph data={state.pois} />
+      </div>
+
       <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2"><Users className="w-3 h-3" /> Verified Individuals Ledger</h3>

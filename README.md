@@ -145,10 +145,20 @@ Access the dashboard at `http://localhost:5173`.
 
 ---
 
+## 🎥 Multimodal Analysis
+NexusDocs supports **Native Video (`.mp4`, `.mov`)** and **Audio (`.mp3`, `.wav`)** ingestion.
+
+> [!IMPORTANT]
+> **Gemini Required for Media**: Video/Audio analysis relies on **Google Gemini's** native multimodal token window (`gemini-1.5-pro`, `gemini-exp-1206`, etc.).
+> Local models (Llama 3) and standard LLMs are **text-only** and cannot "see" video or "hear" audio directly.
+>
+> *Supported Models*: `gemini-1.5-pro` (Recommended), `gemini-1.5-flash`, `gemini-exp-1206`, `gemini-2.0-flash-exp`.
+
 ## 📅 Roadmap
-- [ ] **Graph Visualization**: Interactive node-link diagram of all verified entities.
-- [ ] **Native Video & Audio**: Support for MP4/MP3 ingestion to analyze bodycam footage and wiretaps.
-- [ ] **Offline OCR**: Integrate Tesseract.js for purely local image text extraction.
+- [x] **Graph Visualization**: Interactive node-link diagram of all verified entities.
+- [x] **Native Video & Audio**: Support for MP4/MP3 ingestion to analyze bodycam footage and wiretaps.
+- [x] **Offline OCR**: Integrate Tesseract.js for purely local image text extraction.
+- [ ] **Local Transcription Layer**: Integrate Whisper.cpp for offline audio-to-text conversion (enabling local model support for audio).
 
 ---
 

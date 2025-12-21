@@ -101,7 +101,7 @@ Respond with a JSON object containing:
 - timelineEvents (array of objects with date, event)
 `;
 
-export async function analyzeDocument(text: string, images: string[], apiKey: string, modelId: string = "gemini-1.5-flash", verificationTarget?: string, useSearch: boolean = false): Promise<DocumentAnalysis> {
+export async function analyzeDocument(text: string, images: string[], apiKey: string, modelId: string = "gemini-1.5-flash", verificationTarget?: string, useSearch: boolean = false, mediaItem?: { mimeType: string, data: string }): Promise<DocumentAnalysis> {
   const genAI = new GoogleGenerativeAI(apiKey || import.meta.env.VITE_API_KEY || '');
   const model = genAI.getGenerativeModel({
     model: modelId,
@@ -124,6 +124,13 @@ export async function analyzeDocument(text: string, images: string[], apiKey: st
   for (const img of images.slice(0, 5)) {
     parts.push({
       inlineData: { mimeType: "image/jpeg", data: img }
+    });
+  }
+
+  // Add Video/Audio if present
+  if (mediaItem) {
+    parts.push({
+      inlineData: { mimeType: mediaItem.mimeType, data: mediaItem.data }
     });
   }
 

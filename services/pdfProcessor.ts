@@ -1,3 +1,4 @@
+import { recognizeText } from './ocrService';
 
 declare const pdfjsLib: any;
 
@@ -11,25 +12,31 @@ export async function processPdf(file: File | Blob): Promise<{ text: string; ima
   let fullText = '';
   const images: string[] = [];
 
-  for (let i = 1; i <= Math.min(pdf.numPages, 50); i++) { // Limit to 50 pages for performance
+  for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) { // Limit 10 for performance with OCR
     const page = await pdf.getPage(i);
 
-    // Extract Text
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item: any) => item.str).join(' ');
-    fullText += pageText + '\n';
-
-    // Extract first image of each page if it exists (sample approach)
-    // In a production app, we'd iterate over operators to find actual images
-    // For now, let's render the page to a small canvas as a visual reference for the AI
-    const viewport = page.getViewport({ scale: 1.0 });
+    // Render Page for Visuals & OCR
+    const viewport = page.getViewport({ scale: 1.5 }); // Higher scale for better OCR
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.height = viewport.height;
     canvas.width = viewport.width;
-
     await page.render({ canvasContext: context, viewport: viewport }).promise;
-    images.push(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]); // Base64 part only
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    images.push(dataUrl.split(',')[1]);
+
+    // Attempt Text Extraction
+    const textContent = await page.getTextContent();
+    let pageText = textContent.items.map((item: any) => item.str).join(' ');
+
+    // Fallback to OCR if text is empty (Scanned PDF)
+    if (pageText.trim().length < 20) {
+      console.log(`[Page ${i}] No text layer found. Attempting OCR...`);
+      pageText = await recognizeText(dataUrl);
+    }
+
+    fullText += `[Page ${i}]\n${pageText}\n\n`;
   }
 
   return { text: fullText, images };
