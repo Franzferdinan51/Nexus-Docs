@@ -21,10 +21,28 @@ A non-blocking verification system designed for speed and accuracy:
 3.  **Background Verification**: A dedicated background agent picks up the task and uses your **Preferred Verifier** (e.g., Gemini with Google Search or a larger Local Model) to double-check the finding.
  *Result: You get the throughput of a small model with the accuracy of a large model.*
 
-### 🖥️ Dynamic Local Nodes
-Full support for **LM Studio** and local inference:
-- **Multi-Model Support**: Configure a single LM Studio endpoint to switch models dynamically on request.
-- **Port Management**: Connect multiple local nodes (e.g., Port 1234 and Port 1235) to distribute the load.
+### 📊 Deep Analytics & Verified Ledger
+Gain broad situational awareness over your document set:
+- **Verified Individuals Ledger**: A live, sorted ledger of every entity confirmed by your agents, ranked by reference count.
+- **Dossier Mode**: Click any verified name to inspect specific mentions, context, and signal strength across all documents.
+- **Geographic & Corporate Matrix**: Visualize hotspots and organizational structures automatically extracted from the text.
+
+### 🖥️ Dynamic Local Nodes & Swarm
+Full support for **LM Studio** and local inference with advanced capabilities:
+- **JSON Enforcement**: Automatically "helps" local models output structured data by injecting strict system prompts, ensuring compatibility with the swarming engine.
+- **Swarm Consensus**: When "Parallel Swarm" is enabled, local models working alongside cloud models vote on findings. Verified entities are marked with `[SWARM CONFIRMED]`.
+- **Multi-Port Swarming**: Connect multiple local instances (e.g., Port 1234 and Port 1235) to simulate a local cluster.
+
+---
+
+## 💡 Use Cases
+**NexusDocs** is versatile and can be adapted for various high-stakes data environments:
+
+- **🕵️ Investigative Journalism**: Rapidly process thousands of leaked documents (PDFs, Images) to find hidden connections between individuals and organizations.
+- **⚖️ Legal Discovery (eDiscovery)**: Semi-automate the review of evidence files, flagging privileged information, key witnesses, or conflicting testimonies.
+- **🎓 Academic Research**: Analyze large corpora of historical texts or papers to extract entities, dates, and relationships across decades of data.
+- **🏢 Corporate Intelligence**: Monitor internal knowledge bases or competitor filings for specific keywords, emerging trends, or meaningful patterns.
+- **🛡️ OSINT Operations**: Combine local vision models with web-connected verification agents to cross-reference document data with public records.
 
 ---
 
