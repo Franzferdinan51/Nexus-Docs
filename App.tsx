@@ -1306,6 +1306,8 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
 
 function AnalyticsView({ state, setState }: any) {
   const [selectedEntity, setSelectedEntity] = useState<{ name: string, type: 'person' | 'location' | 'org' } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isArchiveExpanded, setIsArchiveExpanded] = useState(false);
 
   // Compute aggregations
   const evidence: Record<string, number> = {};
@@ -1342,64 +1344,111 @@ function AnalyticsView({ state, setState }: any) {
   const sortedPolitical = Array.from(politicalFigures.entries())
     .map(([name, data]) => ({ name, count: data.count, role: Array.from(data.roles)[0] }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 8); // Top 8
+    .slice(0, 50); // Extended limit from 8 to 50
   const maxCount = Math.max(...sortedEvidence.map(e => e[1]), 1);
 
   const exportReport = () => {
     const html = `
+    <!DOCTYPE html>
     <html>
       <head>
-        <title>NEXUS INTELLIGENCE REPORT</title>
+        <title>NEXUS INTELLIGENCE | CASE FILE</title>
         <style>
-          body { font-family: 'Segoe UI', sans-serif; padding: 40px; background: #f8fafc; color: #1e293b; }
-          .container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-          h1 { color: #4f46e5; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; font-size: 24px; }
-          .meta { color: #64748b; font-size: 12px; margin-bottom: 30px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-          h2 { color: #0f172a; margin-top: 40px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-          th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f1f5f9; }
-          th { background: #f8fafc; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-          tr:hover td { background: #f8fafc; }
-          .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-          .metric { background: #eef2ff; color: #4338ca; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #c7d2fe; }
-          .metric-val { font-size: 32px; font-weight: 900; line-height: 1; }
-          .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 8px; font-weight: 700; color: #6366f1; }
+          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;900&display=swap');
+          :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #6366f1; --accent-dim: #4338ca; --muted: #94a3b8; }
+          body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 40px; }
+          .container { max-width: 1000px; margin: 0 auto; }
+          .header { border-bottom: 2px solid var(--accent); padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: end; }
+          h1 { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 900; letter-spacing: -1px; margin: 0; color: var(--accent); text-transform: uppercase; }
+          .case-id { font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 2px; }
+          
+          .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+          .stat-card { background: var(--card); padding: 20px; border-radius: 8px; border: 1px solid #334155; }
+          .stat-val { font-size: 32px; font-weight: 900; line-height: 1; margin-bottom: 5px; }
+          .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; }
+
+          h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-top: 50px; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+          
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th { text-align: left; color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 1px; padding: 12px; border-bottom: 1px solid #334155; }
+          td { padding: 12px; border-bottom: 1px solid #334155; color: #cbd5e1; }
+          tr:last-child td { border-bottom: none; }
+          .tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+          .tag-high { background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
+          .tag-std { background: #334155; color: #94a3b8; }
+          
+          @media print {
+            body { background: white; color: black; }
+            .stat-card { border: 1px solid #ccc; background: white; color: black; }
+            h1, h2, .stat-val { color: black; }
+            th { color: #666; }
+            td { color: black; border-bottom: 1px solid #eee; }
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>Nexus Intelligence Report</h1>
-          <div class="meta">Generated: ${new Date().toLocaleString()} | Case ID: ${Math.random().toString(36).substr(2, 6).toUpperCase()}</div>
-          
-          <div class="metrics">
-            <div class="metric"><div class="metric-val">${state.documents.length}</div><div class="metric-label">Documents Analyzed</div></div>
-            <div class="metric"><div class="metric-val">${state.pois.length}</div><div class="metric-label">Verified Individuals</div></div>
-            <div class="metric"><div class="metric-val">${Object.keys(orgs).length}</div><div class="metric-label">Unique Entities</div></div>
+          <div class="header">
+            <div>
+              <div class="case-id">CONFIDENTIAL // INTELLIGENCE DOSSIER // EYES ONLY</div>
+              <h1>Nexus Intelligence Report</h1>
+            </div>
+            <div class="case-id">
+              DATE: ${new Date().toLocaleString().toUpperCase()}<br>
+              CASE ID: ${Math.random().toString(36).substr(2, 6).toUpperCase()}
+            </div>
           </div>
 
-          <h2>Political & Government Matrix</h2>
+          <div class="grid">
+            <div class="stat-card"><div class="stat-val">${state.documents.length}</div><div class="stat-label">Documents Analyzed</div></div>
+            <div class="stat-card"><div class="stat-val">${state.pois.length}</div><div class="stat-label">Verified Individuals</div></div>
+            <div class="stat-card"><div class="stat-val">${Object.keys(orgs).length}</div><div class="stat-label">Unique Entities</div></div>
+          </div>
+
+          <h2><span style="color: #6366f1">///</span> Verified Individuals Ledger</h2>
           <table>
-            <thead><tr><th>Subject Name</th><th>Primary Role</th><th>Ref Count</th></tr></thead>
+            <thead><tr><th>Subject Name</th><th>Classification</th><th>Reference Count</th><th>Primary Role</th></tr></thead>
             <tbody>
-              ${sortedPolitical.map(p => `<tr><td style="font-weight:600">${p.name}</td><td>${p.role || 'Unknown'}</td><td>${p.count}</td></tr>`).join('')}
+              ${[...state.pois].sort((a: any, b: any) => b.mentions.length - a.mentions.length).map((p: any) => `
+                <tr>
+                  <td style="font-weight: 800">${p.name.toUpperCase()}</td>
+                  <td><span class="tag ${p.isPolitical ? 'tag-high' : 'tag-std'}">${p.isPolitical ? 'HIGH PRIORITY' : 'STANDARD'}</span></td>
+                  <td style="font-family: 'JetBrains Mono'; font-weight: 700">${p.mentions.length}</td>
+                  <td>${state.documents.find((d: any) => d.analysis?.entities?.find((e: any) => e.name === p.name))?.analysis?.entities?.find((e: any) => e.name === p.name)?.role || 'Unknown'}</td>
+                </tr>
+              `).join('')}
             </tbody>
           </table>
 
-          <h2>Geographic Nodes</h2>
-           <table>
-            <thead><tr><th>Location</th><th>Frequency</th></tr></thead>
+          <h2><span style="color: #6366f1">///</span> Political & Government Matrix</h2>
+          <table>
+            <thead><tr><th>Subject Name</th><th>Role</th><th>Ref Count</th></tr></thead>
             <tbody>
-              ${sortedLocations.map(l => `<tr><td style="font-weight:600">${l[0]}</td><td>${l[1]}</td></tr>`).join('')}
+              ${sortedPolitical.map(p => `<tr><td style="font-weight:700">${p.name}</td><td>${p.role || 'Unknown'}</td><td>${p.count}</td></tr>`).join('')}
             </tbody>
           </table>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+            <div>
+              <h2><span style="color: #6366f1">///</span> Geographic Nodes</h2>
+               <table>
+                <thead><tr><th>Location</th><th>Freq</th></tr></thead>
+                <tbody>
+                  ${sortedLocations.map(l => `<tr><td style="font-weight:600">${l[0]}</td><td>${l[1]}</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <h2><span style="color: #6366f1">///</span> Key Organizations</h2>
+               <table>
+                <thead><tr><th>Organization</th><th>Freq</th></tr></thead>
+                <tbody>
+                  ${sortedOrgs.map(o => `<tr><td style="font-weight:600">${o[0]}</td><td>${o[1]}</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-           <h2>Key Organizations</h2>
-           <table>
-            <thead><tr><th>Organization</th><th>Mentions</th></tr></thead>
-            <tbody>
-              ${sortedOrgs.map(o => `<tr><td style="font-weight:600">${o[0]}</td><td>${o[1]}</td></tr>`).join('')}
-            </tbody>
-          </table>
         </div>
       </body>
     </html>
@@ -1424,64 +1473,91 @@ function AnalyticsView({ state, setState }: any) {
 
       {selectedEntity && <DossierModal state={state} setState={setState} entity={selectedEntity} onClose={() => setSelectedEntity(null)} />}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Evidence Distribution */}
-        <div className="lg:col-span-2 bg-slate-900/40 border border-slate-800 p-6 rounded-xl shadow-xl">
-          <h3 className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-6 flex items-center gap-2"><Layers className="w-3 h-3" /> Archive Composition</h3>
-          <div className="space-y-3">
-            {sortedEvidence.map(([type, count], i) => (
-              <div key={i} className="group">
-                <div className="flex justify-between text-[9px] font-bold uppercase tracking-wide text-slate-400 mb-1">
-                  <span>{type}</span>
-                  <span className="text-white">{count} ({Math.round((count / (state.documents.length || 1)) * 100)}%)</span>
-                </div>
-                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                  <div className="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-indigo-500" style={{ width: `${(count / maxCount) * 100}%` }}></div>
-                </div>
-              </div>
-            ))}
-            {sortedEvidence.length === 0 && <div className="text-center py-10 text-slate-600 italic">No classified evidence found.</div>}
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
+          <div className="text-5xl font-black text-indigo-500 drop-shadow-2xl">{state.pois.length}</div>
+          <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Verified Individuals</div>
         </div>
-
-        {/* Key Stats */}
-        <div className="space-y-4">
-          <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
-            <div className="text-5xl font-black text-indigo-500 drop-shadow-2xl">{state.pois.length}</div>
-            <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Verified Individuals</div>
-          </div>
-          <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
-            <div className="text-5xl font-black text-slate-200 drop-shadow-2xl">{Object.keys(locations).length}</div>
-            <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Global Nodes</div>
-          </div>
-          <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
-            <div className="text-5xl font-black text-slate-200 drop-shadow-2xl">{Object.keys(orgs).length}</div>
-            <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Entities</div>
-          </div>
+        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
+          <div className="text-5xl font-black text-slate-200 drop-shadow-2xl">{Object.keys(locations).length}</div>
+          <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Global Nodes</div>
+        </div>
+        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center text-center shadow-xl">
+          <div className="text-5xl font-black text-slate-200 drop-shadow-2xl">{Object.keys(orgs).length}</div>
+          <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mt-4">Entities</div>
         </div>
       </div>
 
-      {/* Political Matrix */}
-      <div className="bg-indigo-950/20 border border-indigo-500/20 p-5 rounded-xl">
-        <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Landmark className="w-3 h-3" /> Political & Government Ties</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {sortedPolitical.map((p, i) => (
-            <div key={i} onClick={() => setSelectedEntity({ name: p.name, type: 'person' })} className="bg-slate-950/60 p-3 rounded border border-indigo-500/10 hover:border-indigo-500/50 hover:bg-indigo-900/10 cursor-pointer transition-all group">
-              <div className="flex justify-between items-start mb-2">
-                <div className="p-1.5 bg-indigo-500/20 rounded text-indigo-400"><Star className="w-3 h-3" /></div>
-                <div className="text-[9px] font-black text-slate-500 uppercase group-hover:text-indigo-400">REF: {p.count}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Political Matrix (Primary, col-span-2) */}
+        <div className="lg:col-span-2 bg-indigo-950/20 border border-indigo-500/20 p-5 rounded-xl h-fit">
+          <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Landmark className="w-3 h-3" /> Political & Government Ties</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 max-h-[320px] overflow-y-auto custom-scrollbar pr-2">
+            {sortedPolitical.map((p, i) => (
+              <div key={i} onClick={() => setSelectedEntity({ name: p.name, type: 'person' })} className="bg-slate-950/60 p-3 rounded border border-indigo-500/10 hover:border-indigo-500/50 hover:bg-indigo-900/10 cursor-pointer transition-all group h-fit">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="p-1.5 bg-indigo-500/20 rounded text-indigo-400"><Star className="w-3 h-3" /></div>
+                  <div className="text-[9px] font-black text-slate-500 uppercase group-hover:text-indigo-400">REF: {p.count}</div>
+                </div>
+                <div className="font-bold text-white text-[10px] uppercase truncate mb-1 group-hover:text-indigo-200">{p.name}</div>
+                <div className="text-[8px] text-slate-400 uppercase tracking-wider truncate">{p.role || 'High Profile'}</div>
               </div>
-              <div className="font-bold text-white text-[10px] uppercase truncate mb-1 group-hover:text-indigo-200">{p.name}</div>
-              <div className="text-[8px] text-slate-400 uppercase tracking-wider truncate">{p.role || 'High Profile'}</div>
+            ))}
+            {sortedPolitical.length === 0 && <div className="col-span-4 text-center py-6 text-slate-600 italic">No government or political ties detected in current dataset.</div>}
+          </div>
+        </div>
+
+        {/* Archive Composition (Secondary, col-span-1, Collapsible) */}
+        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl shadow-xl h-fit">
+          <div className="flex justify-between items-center mb-6 cursor-pointer" onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}>
+            <h3 className="text-[9px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2"><Layers className="w-3 h-3" /> Archive Composition</h3>
+            <button className="text-slate-500 hover:text-white transition-colors">
+              {isArchiveExpanded ? <ChevronRight className="w-4 h-4 rotate-90 transition-transform" /> : <ChevronRight className="w-4 h-4 transition-transform" />}
+            </button>
+          </div>
+
+          {isArchiveExpanded ? (
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              {sortedEvidence.map(([type, count], i) => (
+                <div key={i} className="group">
+                  <div className="flex justify-between text-[9px] font-bold uppercase tracking-wide text-slate-400 mb-1">
+                    <span>{type}</span>
+                    <span className="text-white">{count} ({Math.round((count / (state.documents.length || 1)) * 100)}%)</span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                    <div className="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-indigo-500" style={{ width: `${(count / maxCount) * 100}%` }}></div>
+                  </div>
+                </div>
+              ))}
+              {sortedEvidence.length === 0 && <div className="text-center py-10 text-slate-600 italic">No classified evidence found.</div>}
             </div>
-          ))}
-          {sortedPolitical.length === 0 && <div className="col-span-4 text-center py-6 text-slate-600 italic">No government or political ties detected in current dataset.</div>}
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {sortedEvidence.slice(0, 4).map(([type, count], i) => (
+                <span key={i} className="bg-slate-950 border border-slate-800 px-2 py-1 rounded text-[9px] font-bold text-slate-400 uppercase">{type}: <span className="text-indigo-400">{count}</span></span>
+              ))}
+              <span className="text-[9px] text-slate-600 italic self-center ml-1">...</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Verified Individuals Ledger */}
       <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
-        <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Users className="w-3 h-3" /> Verified Individuals Ledger</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2"><Users className="w-3 h-3" /> Verified Individuals Ledger</h3>
+          <div className="relative">
+            <Search className="w-3 h-3 text-slate-500 absolute left-2 top-1.5" />
+            <input
+              type="text"
+              placeholder="FILTER SUBJECTS..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded text-[9px] font-bold text-white pl-7 pr-3 py-1 uppercase tracking-wider focus:outline-none focus:border-indigo-500 w-48 placeholder-slate-700 transition-all focus:w-64"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1493,18 +1569,21 @@ function AnalyticsView({ state, setState }: any) {
               </tr>
             </thead>
             <tbody>
-              {[...state.pois].sort((a: any, b: any) => b.mentions.length - a.mentions.length).map((p: any, i: number) => (
-                <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
-                  <td className="p-2 font-bold text-slate-200 text-[10px]">{p.name}</td>
-                  <td className="p-2 text-[9px] text-slate-400 font-mono">{p.isPolitical ? 'HIGH PROFILE' : 'Standard Subject'}</td>
-                  <td className="p-2 text-[10px] font-mono text-indigo-400 text-right font-bold">{p.mentions.length}</td>
-                  <td className="p-2 text-right">
-                    <button onClick={() => setSelectedEntity({ name: p.name, type: 'person' })} className="text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-400 transition-colors">
-                      View Dossier
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {[...state.pois]
+                .filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.role && p.role.toLowerCase().includes(searchTerm.toLowerCase())))
+                .sort((a: any, b: any) => b.mentions.length - a.mentions.length)
+                .map((p: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
+                    <td className="p-2 font-bold text-slate-200 text-[10px]">{p.name}</td>
+                    <td className="p-2 text-[9px] text-slate-400 font-mono">{p.isPolitical ? 'HIGH PRIORITY' : 'Standard Subject'}</td>
+                    <td className="p-2 text-[10px] font-mono text-indigo-400 text-right font-bold">{p.mentions.length}</td>
+                    <td className="p-2 text-right">
+                      <button onClick={() => setSelectedEntity({ name: p.name, type: 'person' })} className="text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-400 transition-colors">
+                        View Dossier
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               {state.pois.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-600 italic">No verified individuals recorded yet.</td></tr>}
             </tbody>
           </table>
