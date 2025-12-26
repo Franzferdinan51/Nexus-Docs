@@ -9,7 +9,7 @@ import {
 import { ProcessedDocument, AppState, POI, ChatMessage, Entity, DocumentAnalysis } from './types';
 import { processPdf } from './services/pdfProcessor';
 import { analyzeDocument, ragChat } from './services/geminiService';
-import { analyzeWithLMStudio, testLMStudioConnection } from './services/lmStudioService';
+import { analyzeWithLMStudio, testLMStudioConnection, localRagChat } from './services/lmStudioService';
 import { analyzeWithOpenRouter } from './services/openRouterService';
 import { saveDocument, getDocuments, clearDocuments } from './db';
 import { EntityGraph } from './components/EntityGraph';
@@ -163,7 +163,7 @@ export default function App() {
     else if (provider === 'lmstudio2') modelIdLog = cfg.lmStudioModel2 || 'Auto-Detect';
 
     console.log(`[Invoking ${provider}] Model: ${modelIdLog}`);
-    if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch, (arguments[5] as any));
+    if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch, mediaItem);
     if (provider === 'openrouter') return analyzeWithOpenRouter(t, i, cfg.openRouterKey, cfg.openRouterModel, verificationTarget);
     if (provider === 'lmstudio') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint, verificationTarget, cfg.lmStudioModel, useSearch);
     if (provider === 'lmstudio2') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint2, verificationTarget, cfg.lmStudioModel2, useSearch);
@@ -309,6 +309,9 @@ export default function App() {
 
       } else {
         // Sequential / Failover Logic
+        if (config.parallelAnalysis && config.swarmMode === 'consensus') {
+          showToast("Consensus Swarm requires >1 active agents. Falling back to single node.", "warning");
+        }
         for (const provider of activeChain) {
           try {
             lineage.push(provider);
@@ -620,11 +623,31 @@ export default function App() {
         return { doc, score };
       }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 20).map(x => x.doc);
 
-      const chatModel = state.config.enabled.gemini ? state.config.geminiModel : 'gemini-1.5-flash';
-      const response = await ragChat(text, relevantDocs, state.chatHistory, chatModel);
+      // Smart Chat Routing: Use the first enabled provider
+      const config = state.config;
+      let response: string;
+
+      // Check if a local model is the primary enabled provider
+      const localProviders = ['lmstudio', 'lmstudio2', 'lmstudio3', 'lmstudio4'] as const;
+      const enabledLocal = localProviders.find(p => config.enabled[p]);
+
+      if (enabledLocal) {
+        // Route to Local Model
+        const localConfig = (config as any)[enabledLocal] || {};
+        const endpoint = localConfig.endpoint || 'http://127.0.0.1:1234';
+        const modelId = localConfig.modelId;
+        response = await localRagChat(text, relevantDocs, state.chatHistory, endpoint, modelId);
+      } else if (config.enabled.gemini) {
+        // Route to Gemini
+        const chatModel = config.geminiModel || 'gemini-1.5-flash';
+        response = await ragChat(text, relevantDocs, state.chatHistory, chatModel);
+      } else {
+        throw new Error("No chat-capable model enabled. Enable Gemini or a Local Model.");
+      }
+
       setState(prev => ({ ...prev, chatHistory: [...prev.chatHistory, { role: 'assistant', content: response, timestamp: Date.now(), references: relevantDocs.map(d => d.name) }] }));
-    } catch {
-      setState(prev => ({ ...prev, chatHistory: [...prev.chatHistory, { role: 'system', content: 'Agent disconnect. Intelligence loop failed.', timestamp: Date.now() }] }));
+    } catch (e: any) {
+      setState(prev => ({ ...prev, chatHistory: [...prev.chatHistory, { role: 'system', content: `Agent disconnect: ${e.message || 'Unknown error'}`, timestamp: Date.now() }] }));
     }
   };
 
@@ -1384,15 +1407,15 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
             {/* Parallel Mode */}
             <div className="p-4 bg-indigo-600/5 border border-indigo-500/20 rounded-xl flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3"><Cpu className="w-5 h-5 text-indigo-500" /><div><div className="font-black text-[10px] uppercase text-white">Parallel Swarm</div><div className="text-[7px] text-slate-500 uppercase tracking-widest">Simultaneous execution</div></div></div>
+                <div className="flex items-center gap-3"><Cpu className="w-5 h-5 text-indigo-500" /><div><div className="font-black text-[10px] uppercase text-white">Parallel Processing</div><div className="text-[7px] text-slate-500 uppercase tracking-widest">Simultaneous execution</div></div></div>
                 <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={localConfig.parallelAnalysis} onChange={e => setLocalConfig({ ...localConfig, parallelAnalysis: e.target.checked })} className="sr-only peer" /><div className="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label>
               </div>
               {localConfig.parallelAnalysis && (
                 <div className="flex items-center gap-2 justify-end border-t border-indigo-500/10 pt-2">
                   <span className="text-[7px] font-black uppercase text-indigo-400">Swarm Strategy:</span>
                   <div className="flex bg-slate-900 rounded-lg p-0.5">
-                    <button onClick={() => setLocalConfig({ ...localConfig, swarmMode: 'consensus' })} className={`px-2 py-1 rounded text-[7px] font-black uppercase transition-all ${localConfig.swarmMode === 'consensus' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-indigo-300'}`}>Consensus (Hybrid)</button>
-                    <button onClick={() => setLocalConfig({ ...localConfig, swarmMode: 'distributed' })} className={`px-2 py-1 rounded text-[7px] font-black uppercase transition-all ${localConfig.swarmMode === 'distributed' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-indigo-300'}`}>Distributed (Fast)</button>
+                    <button onClick={() => setLocalConfig({ ...localConfig, swarmMode: 'consensus' })} className={`px-2 py-1 rounded text-[7px] font-black uppercase transition-all ${localConfig.swarmMode === 'consensus' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-indigo-300'}`}>Consensus (Multi-Model / Single-Doc)</button>
+                    <button onClick={() => setLocalConfig({ ...localConfig, swarmMode: 'distributed' })} className={`px-2 py-1 rounded text-[7px] font-black uppercase transition-all ${localConfig.swarmMode === 'distributed' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-indigo-300'}`}>Distributed (Single-Model / Multi-Doc)</button>
                   </div>
                 </div>
               )}

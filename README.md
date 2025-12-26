@@ -2,85 +2,84 @@
 
 # NexusDocs Intelligence Platform
 
-**NexusDocs** is a privacy-first, local-first AI platform designed for high-throughput document analysis, entity extraction, and intelligence gathering. It leverages a "Hybrid Swarm" architecture to combine the speed of local LLMs with the reasoning power of cloud models.
+**NexusDocs** is a privacy-first, local-first AI platform designed for high-throughput document analysis, entity extraction, and intelligence gathering. It leverages a **"Hybrid Swarm"** architecture to combine the speed of local LLMs with the reasoning power of cloud models.
 
 ---
 
 ## 🚀 Key Features
 
-### 🧠 Hybrid Swarm Architecture
-NexusDocs orchestrates multiple AI models working in concert:
-- **Parallel Swarm**: Run multiple agents (Gemini, OpenRouter, Local Models) simultaneously on a single document to gather diverse perspectives.
-- **Consensus Engine**: Automatically aggregates and cross-validates findings from all agents to reduce hallucinations (e.g., "[SWARM CONFIRMED]").
-- **Resilient Failover**: If a primary agent fails, the system automatically routes the task to the next available provider.
+### 🧠 Parallel Processing Architecture
+NexusDocs orchestrates multiple AI models to maximize throughput or accuracy. You can choose between two powerful strategies:
+
+#### 1. Consensus Mode (Swarm)
+*   **Best for:** Accuracy & Validation.
+*   **Behavior:** Multiple agents (e.g., Gemini + Local Model A + OpenRouter) analyze the **same document** simultaneously.
+*   **Output:** The system aggregates findings. Entities confirmed by multiple models are marked as `[SWARM CONFIRMED]`, significantly reducing hallucinations.
+
+#### 2. Distributed Mode (High-Throughput)
+*   **Best for:** Speed & Bulk Processing.
+*   **Behavior:** The processing queue is split across your active agents. Agent A takes Document 1, Agent B takes Document 2, etc.
+*   **Output:** processing speed increases linearly with the number of active local/cloud nodes.
 
 ### ⚡ Async Verification Pipeline ("Dual-Check")
-A non-blocking verification system designed for speed and accuracy:
+A non-blocking verification system designed for speed and precision:
 1.  **Fast Lane**: Your primary (fast/local) model scans documents rapidly.
 2.  **Smart Routing**: If a "High Priority Individual" (e.g., Politician, Executive, Celebrity) is detected, the document is marked as **"VERIFYING"** (Purple Badge).
-3.  **Background Verification**: A dedicated background agent picks up the task and uses your **Preferred Verifier** (e.g., Gemini with Google Search or a larger Local Model) to double-check the finding.
- *Result: You get the throughput of a small model with the accuracy of a large model.*
+3.  **Background Verification**: A dedicated background agent picks up the task and uses your **Preferred Verifier** (e.g., Gemini with Google Search) to double-check the finding without slowing down the main queue.
 
-### 📊 Deep Analytics & Visual Intelligence
-Gain broad situational awareness over your document set:
-- **Entity Constellation (v2)**: A physics-based mindmap visualization (NotebookLM style) with red-string connections and interactive pan/zoom.
-- **Verified Individuals Ledger**: A live, sorted ledger of every entity confirmed by your agents.
-- **Geographic & Corporate Matrix**: Visualize hotspots and organizational structures.
-- **Master Event Timeline**: A horizontal, chronologically sorted visualization of all extracted events.
-
-### 🖥️ Dynamic Local Nodes & Swarm
+### 🖥️ Dynamic Local Nodes
 Full support for **LM Studio** and local inference with advanced capabilities:
-- **Quad-Core Swarm**: Connect up to **4 distinct local models** (Ports `1234`, `1235`, etc.) to run simultaneously.
-- **Swarm Consensus**: Agents vote on findings. Verified entities are marked with `[SWARM CONFIRMED]`.
-- **JSON Enforcement**: Automatically "helps" local models output structured data by injecting strict system prompts.
-
-### 🕵️ Agent Intelligence (v2.0)
-The core agent has been upgraded with cognitive enhancements:
-- **Chain of Thought (CoT)**: System prompts now enforce "step-by-step" reasoning to reduce hallucinations.
-- **Confidence Scoring**: Every document is assigned a 0-100% confidence score based on extraction clarity.
-- **Timeline Reconstruction**: The agent automatically extracts a chronological list of events (`Date` -> `Event`) from case files.
-### 💬 Deep Chat (v2.0)
-A premium command center for interacting with your data:
-- **Full Context Access**: The agent now reads the **full content** (not just summaries) of up to 20 documents simultaneously.
-- **Citations**: Claims are backed by precise filenames `[Evidence.pdf]`.
-- **Thinking State**: Visual pulse indicator and terminal-style output.
-- **One-Tap Suggestions**: Rapidly launch "Briefings", "Risk Assessments", or "Entity Lists".
+-   **Quad-Core Swarm**: Connect up to **4 distinct local models** (Ports `1234`, `1235`, `1236`, `1237`) to run simultaneously.
+-   **JSON Enforcement**: The system automatically "helps" local models output structured data.
 
 ---
 
-## 💡 Operational Use Cases
-**NexusDocs** is engineered for high-stakes environments where privacy, speed, and depth of analysis are paramount:
+## 🤖 Recommended System Prompt for Local AI
+To ensure your local LLMs (Llama 3, Mistral, Qwen, etc.) output compatible JSON for NexusDocs, we recommend using the following system prompt in your model settings (e.g., in LM Studio's "System Prompt" field).
 
-### 🕵️ Investigative Journalism
-*   **Shell Company Resolution**: Ingest thousands of leaked corporate registry PDFs to link "Anonymous LLCs" back to specific beneficial owners identified in email signatures.
-*   **Asset Tracing**: Use local vision models to scan seized hard drives for images of luxury assets (yachts, watches) or handwritten ledgers.
-*   **Cross-Referencing**: Instantly verify if a specific name mentioned in a 2015 report appears in a new 2024 dump.
+> **Note:** NexusDocs injects this automatically via API, but setting it as a default in your runner can improve stability for smaller models.
 
-### ⚖️ Legal Defense & eDiscovery
-*   **Contradiction Spotting**: Automatically flag witness statements where dates or locations conflict with flight logs or cell tower records.
-*   **Privilege Review**: Rapidly classify unidentified documents as "Privileged" or "Responsive" based on entity context before manual review.
-*   **Timeline Construction**: Extract every date mentioned in 5,000 pages of discovery to build a master chronological event list.
+```text
+TASK: PERFORM FORENSIC ANALYSIS OF THE PROVIDED DOCUMENT/IMAGE.
 
-### 💰 Corporate Due Diligence
-*   **Risk Extraction**: Parse hundreds of vendor contracts to identify non-standard liability clauses or high-risk jurisdictions.
-*   **Executive Vetting**: Before a merger, cross-reference key executive names against global sanctions lists and negative news using the "Dual-Check" agent.
-*   **Signal Detection**: Monitor internal communication dumps for specific code words or patterns indicative of IP theft.
+CRITICAL INSTRUCTIONS:
+- IDENTIFY: Visually recognize famous individuals, political figures, or known actors if present.
+- INFER: Use context clues (badges, nameplates, captions, uniforms) to deduce identities.
+- DESCRIBE: If a person is unknown, provide specific details (e.g., "Man with facial scar," "Woman in pilot uniform") instead of generic labels.
+- READ: extract all legible text, names, dates, and locations.
 
-### 🏛️ Historical & Academic Research
-*   **Primary Source Analysis**: OCR and analyze non-searchable archival scans (e.g., Cold War telexes) to map social networks of the era.
-*   **Policy Evolution**: Trace how specific terminology (e.g., "Climate Change") evolved across decades of government whitepapers.
+1. SUMMARY: Concise overview of who is in the image/document and what is happening.
+2. ENTITIES: List EVERY person found. Use "Visually Identified" in context if recognized by face.
+3. POIs: Flag any high-profile targets (Epstein, Maxwell, Politicians, Royals).
+4. KEY INSIGHTS: Connect visual elements to potential evidence (e.g., "Meeting suggests close association").
+5. VISUAL OBJECTS: distinctive items (Safe, Aircraft Tail Number, Passport).
+6. EVIDENCE TYPE: e.g., "Surveillance Photo", "Flight Log", "Passport Scan".
+7. TIMELINE: Chronological list of events ({ date, event }).
+8. CONFIDENCE: 0-100 score of your certainty.
 
-### 🌐 Human Rights Monitoring
-*   **Field Report Aggregation**: Ingest messy field notes and scanned witness testimonies to identify repeat perpetrators or locations of interest.
-*   **Visual Documentation**: Archive and analyze photo evidence of damage or locations, linking them to specific dates and events in the timeline.
+Respond with a valid JSON object. IMPORTANT: Escape all double quotes within strings.
+Containing:
+- summary (string)
+- entities (array of objects with name, role, context, isFamous)
+- keyInsights (array of strings)
+- sentiment (string)
+- documentDate (string, if found)
+- flaggedPOIs (array of strings)
+- locations (array of strings)
+- organizations (array of strings)
+- visualObjects (array of strings)
+- evidenceType (string)
+- confidenceScore (number)
+- timelineEvents (array of {date, event})
+```
 
 ---
 
 ## 🛠️ Setup & Configuration
 
 ### Prerequisites
-- **Node.js**: v18 or higher.
-- **LM Studio** (Optional): For local LLM inference.
+-   **Node.js**: v18 or higher.
+-   **LM Studio** (Optional): For local LLM inference.
 
 ### Installation
 1.  Clone the repository:
@@ -92,18 +91,11 @@ A premium command center for interacting with your data:
     ```bash
     npm install
     ```
-3.  Configure Environment:
-    Create a `.env.local` file (optional, or configure via UI settings):
-    ```env
-    VITE_GEMINI_API_KEY=your_key_here
-    VITE_OPENROUTER_API_KEY=your_key_here
+3.  **Run Locally**:
+    ```bash
+    npm run dev
     ```
-
-### Running Locally
-```bash
-npm run dev
-```
-Access the dashboard at `http://localhost:5173`.
+    Access the dashboard at `http://localhost:5173`.
 
 ---
 
@@ -112,53 +104,20 @@ Access the dashboard at `http://localhost:5173`.
 ### Enabling "Dual-Check" Mode
 1.  Go to **Settings** (Gear Icon).
 2.  Enable **"Dual Check Mode"**.
-3.  Select your **"Preferred Verifier"** (e.g., "Local Model D").
-    *   *Independent Operation*: Your verifier can be disabled in the main Swarm list (saving resources) but will auto-wake to verify VIP targets.
+3.  Select your **"Preferred Verifier"** (e.g., "Gemini" for web validation or "Local Model D" for privacy).
 
 ### Connecting LM Studio
-1.  Start LM Studio and load a model.
+1.  Start LM Studio and load a vision-capable model (recommended: `llama-3.2-vision` or `llava`).
 2.  Start the Local Server (Default Port: `1234`).
-3.  In NexusDocs **Settings**, enable "Local Model A" and verify the endpoint is `http://127.0.0.1:1234`.
-4.  (Optional) Enter the specific **Model ID** (e.g., `llama-3-8b`) if you want NexusDocs to request a specific model load.
+3.  In NexusDocs **Settings**, enable "Local Model A".
+4.  Ensure Endpoint is `http://127.0.0.1:1234`.
 
 ---
 
 ## 🔒 Privacy & Security
-- **Local First**: Files are processed in your browser or sent directly to your local LM Studio instance.
-- **No Persistence**: Document data is stored in `IndexedDB` (browser storage) and is never uploaded to a central NexusDocs server.
-- **Keys**: API keys are stored in `localStorage` on your device.
-
----
-
----
-
-## ❓ Troubleshooting
-**Local Model Swarm Not Working?**
-- Ensure LM Studio is running in **Server Mode**.
-- Verify CORS is enabled in LM Studio settings.
-- Check the Console (F12) for specific swarming errors (e.g., `Parallel Agent [lmstudio] FAILED`).
-
-**Dual Check Not Triggering?**
-- Verify the "Dual Check Mode" toggle is ON in Settings.
-- Ensure the primary model is finding entities classified as "High Priority".
-- Check if your Independent Verifier has a valid Endpoint/Key.
-
----
-
-## 🎥 Multimodal Analysis
-NexusDocs supports **Native Video (`.mp4`, `.mov`)** and **Audio (`.mp3`, `.wav`)** ingestion.
-
-> [!IMPORTANT]
-> **Gemini Required for Media**: Video/Audio analysis relies on **Google Gemini's** native multimodal token window (`gemini-1.5-pro`, `gemini-exp-1206`, etc.).
-> Local models (Llama 3) and standard LLMs are **text-only** and cannot "see" video or "hear" audio directly.
->
-> *Supported Models*: `gemini-1.5-pro` (Recommended), `gemini-1.5-flash`, `gemini-exp-1206`, `gemini-2.0-flash-exp`.
-
-## 📅 Roadmap
-- [x] **Graph Visualization**: Interactive node-link diagram of all verified entities.
-- [x] **Native Video & Audio**: Support for MP4/MP3 ingestion to analyze bodycam footage and wiretaps.
-- [x] **Offline OCR**: Integrate Tesseract.js for purely local image text extraction.
-- [ ] **Local Transcription Layer**: Integrate Whisper.cpp for offline audio-to-text conversion (enabling local model support for audio).
+-   **Local First**: Files are processed in your browser or sent directly to your local LM Studio instance.
+-   **No Persistence**: Document data is stored in `IndexedDB` (browser storage) and is never uploaded to a central NexusDocs server.
+-   **Keys**: API keys are stored in `localStorage` on your device.
 
 ---
 

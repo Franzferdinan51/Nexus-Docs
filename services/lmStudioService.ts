@@ -294,3 +294,82 @@ export async function analyzeWithLMStudio(text: string, images: string[], endpoi
     throw error;
   }
 }
+
+/**
+ * Local RAG Chat for LM Studio - mirrors ragChat from geminiService
+ */
+export async function localRagChat(
+  query: string,
+  contextDocs: any[],
+  history: any[],
+  endpoint: string,
+  requestedModelId?: string
+): Promise<string> {
+  const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
+  const url = `${baseUrl}/v1/chat/completions`;
+
+  let modelId: string | null | undefined = requestedModelId;
+  if (!modelId) {
+    modelId = await getAvailableModel(baseUrl);
+  }
+  if (!modelId) {
+    throw new Error("No model loaded in LM Studio.");
+  }
+
+  const contextText = contextDocs.length > 0
+    ? contextDocs.map(d => `
+=== DOCUMENT START ===
+ID: ${d.id}
+FILENAME: ${d.name}
+DATE: ${d.analysis?.documentDate || 'Unknown'}
+SUMMARY: ${d.analysis?.summary}
+ENTITIES: ${d.analysis?.entities?.map((e: any) => `${e.name} (${e.role})`).join(', ') || 'None'}
+FULL EXTRACTED CONTENT:
+${d.content ? d.content.substring(0, 50000) : "[Content Missing or Image Only]"}
+=== DOCUMENT END ===
+`).join('\n\n')
+    : "No specific documents matched the query keywords. Answer based on general knowledge, but explicitly state that no local files were referenced.";
+
+  const historyText = history.slice(-20).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+
+  const systemPrompt = `You are the NEXUS Investigative Agent (Version 2.0).
+You have DIRECT ACCESS to the user's secure document archive.
+
+YOUR MANDATE:
+1. DEEP ANALYSIS: You must read the "FULL EXTRACTED CONTENT" of the provided documents, not just the summaries.
+2. SYNTHESIS: Connect dots between different documents. If Document A mentions "Pilot X" and Document B mentions "Pilot X flew to Island", combine these facts.
+3. CITATIONS: You MUST cite your sources. When asserting a fact found in a file, append [Filename.pdf].
+4. ACCURACY: Do not hallucinate. If the content is not in the provided text, say "I cannot find this in the current archive."`;
+
+  const userPrompt = `
+ARCHIVE CONTEXT (RAG DATA):
+${contextText}
+
+CONVERSATION HISTORY:
+${historyText}
+
+CURRENT USER QUERY: ${query}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    mode: 'cors',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 4000
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`LM Studio Chat Error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "The local agent was unable to synthesize a response.";
+}

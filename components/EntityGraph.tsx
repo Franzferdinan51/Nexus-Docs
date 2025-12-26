@@ -65,6 +65,7 @@ export function EntityGraph({ data }: { data: any[] }) {
         const update = () => {
             // Physics (Skip if paused)
             if (!paused) {
+                let activeEnergy = 0;
                 entities.forEach(node => {
                     entities.forEach(other => {
                         if (node === other) return;
@@ -82,18 +83,19 @@ export function EntityGraph({ data }: { data: any[] }) {
 
                     const cx = (canvasRef.current?.width || 800) / 2;
                     const cy = (canvasRef.current?.height || 600) / 2;
-                    node.vx += (cx - node.x) * 0.002; // Stronger centering
+                    node.vx += (cx - node.x) * 0.002;
                     node.vy += (cy - node.y) * 0.002;
 
-                    // "Heavy" Physics - High Friction
-                    node.vx *= 0.85;
-                    node.vy *= 0.85;
+                    // AGGRESSIVE FRICTION (0.5) - Stops rapid floating
+                    node.vx *= 0.50;
+                    node.vy *= 0.50;
 
                     if (node !== dragging) {
                         node.x += node.vx;
                         node.y += node.vy;
                     }
 
+                    // Wall Bounce
                     const padding = node.width / 2;
                     const w = canvasRef.current?.width || 800;
                     const h = canvasRef.current?.height || 600;
@@ -101,7 +103,15 @@ export function EntityGraph({ data }: { data: any[] }) {
                     if (node.x > w - padding) { node.x = w - padding; node.vx *= -0.5; }
                     if (node.y < padding) { node.y = padding; node.vy *= -0.5; }
                     if (node.y > h - padding) { node.y = h - padding; node.vy *= -0.5; }
+
+                    activeEnergy += Math.abs(node.vx) + Math.abs(node.vy);
                 });
+
+                // AUTO-SLEEP: If system energy is low, freeze it explicitly
+                if (activeEnergy < 0.1 && !dragging) {
+                    // This effectively "locks" the graph until user interacts
+                    setPaused(true);
+                }
             }
 
             // Draw
