@@ -112,6 +112,24 @@ Containing:
 3.  In NexusDocs **Settings**, enable "Local Model A".
 4.  Ensure Endpoint is `http://127.0.0.1:1234`.
 
+### 🧠 Optimal Local Models & Context Settings
+NexusDocs sends large context chunks (up to **40,000 characters** or ~10k tokens) to ensure full document analysis.
+
+> [!WARNING]
+> Standard "8k Context" models will fail with complex documents. You must use models with **16k+ Context Windows**.
+
+**Recommended Configuration:**
+-   **Minimum Context**: `16384` (16k)
+-   **Ideal Context**: `32768` (32k) or higher.
+-   *In LM Studio: Increase the "Context Length" slider in the right sidebar before loading the model.*
+
+**Verified High-Performance Models:**
+The following vision-capable models have been vetted for the NexusDocs pipeline:
+-   **GLM-4v-9B (Flash)**: Excellent balance of speed and visual reasoning.
+-   **Qwen3-VL-8B**: High-precision OCR and chart reading.
+-   **Qwen3-VL-30B-a3b**: SOTA performance for deep analysis.
+-   (Legacy) **Llama-3.2-11B-Vision**: Good general performance.
+
 ---
 
 ## 🔒 Privacy & Security
