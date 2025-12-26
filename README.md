@@ -1,5 +1,8 @@
 ![NexusDocs Banner](https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6)
 
+> [!CAUTION]
+> **Verification Required**: Artificial Intelligence can make mistakes. Always verify all extracted information against primary sources, especially in high-stakes contexts.
+
 # NexusDocs Intelligence Platform
 
 **NexusDocs** is a privacy-first, local-first AI platform designed for high-throughput document analysis, entity extraction, and intelligence gathering. It leverages a **"Hybrid Swarm"** architecture to combine the speed of local LLMs with the reasoning power of cloud models.
