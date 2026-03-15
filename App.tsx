@@ -189,7 +189,14 @@ export default function App() {
           reader.readAsDataURL(blob);
         });
         mediaItem = { mimeType: blob.type, data: b64.split(',')[1] };
+      } else if (doc.type === 'text') {
+        // Use pre-extracted content from upload
+        text = doc.content || '';
+      } else if (doc.type === 'image') {
+        // Use pre-extracted base64 images from upload
+        images = doc.images || [];
       } else {
+        // PDF and other documents
         const res = await processPdf(blob);
         text = res.text;
         images = res.images;
@@ -468,11 +475,29 @@ export default function App() {
           fileStore[id] = file;
           newDocs.push({ id, name: file.name, type: 'pdf', content: '', images: [], status: 'pending' });
           queueIds.push(id);
-        } else if (/\.(mp4|mov|avi|mp3|wav|m4a)$/i.test(file.name)) {
+        } else if (/\.(mp4|mov|avi|webm|mp3|wav|m4a|ogg|flac)$/i.test(file.name)) {
           const id = Math.random().toString(36).substr(2, 9);
           fileStore[id] = file;
-          const type = /\.(mp3|wav|m4a)$/i.test(file.name) ? 'audio' : 'video';
+          const type = /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.name) ? 'audio' : 'video';
           newDocs.push({ id, name: file.name, type: type as any, content: '', images: [], status: 'pending' });
+          queueIds.push(id);
+        } else if (/\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(file.name)) {
+          // Image files - convert to base64 for vision analysis
+          const id = Math.random().toString(36).substr(2, 9);
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+            reader.readAsDataURL(file);
+          });
+          fileStore[id] = file;
+          newDocs.push({ id, name: file.webkitRelativePath || file.name, type: 'image', content: '', images: [base64], status: 'pending' });
+          queueIds.push(id);
+        } else if (/\.(md|txt|json|csv|html|xml|log|tsv)$/i.test(file.name)) {
+          // Text files - read content directly
+          const id = Math.random().toString(36).substr(2, 9);
+          const content = await file.text();
+          fileStore[id] = file;
+          newDocs.push({ id, name: file.webkitRelativePath || file.name, type: 'text', content, images: [], status: 'pending' });
           queueIds.push(id);
         }
       } catch (err) {
@@ -569,7 +594,15 @@ export default function App() {
           <label className="flex items-center justify-center gap-2 p-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer transition-all shadow-md active:scale-95 group">
             <Upload className="w-4 h-4" />
             {isSidebarOpen && <span className="font-bold text-[9px] uppercase tracking-widest">Ingest</span>}
-            <input type="file" className="hidden" multiple accept=".zip,.pdf,.mp4,.mov,.mp3,.wav" onChange={handleFileUpload} />
+            <input 
+              type="file" 
+              className="hidden" 
+              multiple 
+              accept=".zip,.pdf,.mp4,.mov,.mp3,.wav,.md,.txt,.json,.csv,.html,.xml,.log,.tsv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.m4a,.ogg,.flac,.avi,.webm"
+              webkitdirectory="" 
+              directory="" 
+              onChange={handleFileUpload} 
+            />
           </label>
         </div>
       </aside>
