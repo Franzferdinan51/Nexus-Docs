@@ -27,6 +27,7 @@ export interface DocumentAnalysis {
   documentDate?: string;
   flaggedPOIs: string[];
   processedBy?: string;
+  provider?: string; // Provider used for analysis
   locations?: string[]; // New: Places mentioned
   organizations?: string[]; // New: Companies/Groups
   visualObjects?: string[]; // New: Objects found in images
@@ -44,12 +45,13 @@ export interface POI {
 }
 
 export interface ModelConfig {
-  priority: ('gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2')[];
+  priority: ('gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2' | 'openclaw')[];
   enabled: {
     gemini: boolean;
     openrouter: boolean;
     lmstudio: boolean;
     lmstudio2: boolean;
+    openclaw: boolean;
   };
   geminiKey: string;
   geminiModel: string;
@@ -59,8 +61,10 @@ export interface ModelConfig {
   lmStudioModel: string;
   lmStudioEndpoint2: string;
   lmStudioModel2: string;
+  openClawEndpoint: string;
+  openClawModel: string;
   dualCheckMode: boolean; // Enable cross-verification
-  preferredVerifier: 'auto' | 'gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2';
+  preferredVerifier: 'auto' | 'gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2' | 'openclaw';
   parallelAnalysis: boolean; // Enable parallel execution
 }
 
