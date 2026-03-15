@@ -59,8 +59,36 @@ export function CameraFeed({
   const [lastMotion, setLastMotion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // WebSocket connection for video stream
+  // WebSocket connection for video stream (or browser getUserMedia for USB)
   useEffect(() => {
+    // For USB cameras, try browser getUserMedia first
+    if (source === 'usb') {
+      const initBrowserCamera = async () => {
+        setConnectionStatus('connecting');
+        try {
+          const stream = await getBrowserCameraStream({ video: { width: 1280, height: 720 } });
+          if (stream && videoRef.current) {
+            videoRef.current.srcObject = stream;
+            setConnectionStatus('connected');
+            setError(null);
+          } else {
+            throw new Error('Could not access camera');
+          }
+        } catch (err) {
+          setError('Camera access denied or not available. Configure WebSocket URL in Settings.');
+          setConnectionStatus('disconnected');
+        }
+      };
+      initBrowserCamera();
+      return () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+          const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+          tracks.forEach(track => track.stop());
+        }
+      };
+    }
+
+    // For phone/IP cameras, use WebSocket
     const wsUrl = getWebSocketUrl(source, url, cameraId);
     
     const connectWebSocket = () => {
@@ -80,14 +108,11 @@ export function CameraFeed({
             const data = JSON.parse(event.data);
             
             if (data.type === 'frame') {
-              // Handle video frame
               const frame = data.payload;
               renderFrame(frame);
             } else if (data.type === 'motion') {
-              // Handle motion detection event
               if (data.payload.boundingBox) {
                 setLastMotion(data.payload.boundingBox);
-                // Clear motion overlay after 2 seconds
                 setTimeout(() => setLastMotion(null), 2000);
               }
             }
@@ -97,13 +122,12 @@ export function CameraFeed({
         };
 
         ws.onerror = () => {
-          setError('WebSocket connection error');
+          setError('WebSocket connection error - configure server URL in Settings');
           setConnectionStatus('disconnected');
         };
 
         ws.onclose = () => {
           setConnectionStatus('disconnected');
-          // Attempt to reconnect after 5 seconds
           setTimeout(connectWebSocket, 5000);
         };
       } catch (err) {
@@ -356,6 +380,16 @@ function getWebSocketUrl(source: 'usb' | 'ip' | 'phone', url: string | undefined
       return `${baseWsUrl}/stream/ip/${encodeURIComponent(url || '')}`;
     default:
       return `${baseWsUrl}/stream/${cameraId}`;
+  }
+}
+
+// Use browser getUserMedia for USB cameras when WebSocket is not available
+async function getBrowserCameraStream(constraints: MediaStreamConstraints): Promise<MediaStream | null> {
+  try {
+    return await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (err) {
+    console.error('Failed to access camera:', err);
+    return null;
   }
 }
 

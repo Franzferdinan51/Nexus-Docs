@@ -40,8 +40,8 @@ export interface MotionCamConfig {
 // ============================================================================
 
 const DEFAULT_CAMERAS: CameraDevice[] = [
-  { id: 'phone-cam', name: 'Grow Tent', source: 'phone', enabled: true },
-  { id: 'usb-cam', name: 'USB Camera', source: 'usb', url: '/dev/video0', enabled: true },
+  { id: 'usb-cam', name: 'USB Webcam', source: 'usb', url: '/dev/video0', enabled: true },
+  { id: 'phone-cam', name: 'Phone Camera (Wireless ADB)', source: 'phone', enabled: false },
 ];
 
 const DEFAULT_CONFIG: MotionCamConfig = {
@@ -61,8 +61,28 @@ export function MotionCamTab() {
   const [isRecording, setIsRecording] = useState(false);
   const [activeView, setActiveView] = useState<'grid' | 'single'>('grid');
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
   
   const cameraFeedRefs = useState(() => new Map<string, React.RefObject<CameraFeedHandle>>());
+
+  // Load camera config from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('motioncam-config');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.cameras) setCameras(parsed.cameras);
+        if (parsed.config) setConfig(parsed.config);
+      } catch (e) {
+        console.error('Failed to load MotionCam config:', e);
+      }
+    }
+  }, []);
+
+  // Save camera config to localStorage
+  useEffect(() => {
+    localStorage.setItem('motioncam-config', JSON.stringify({ cameras, config }));
+  }, [cameras, config]);
 
   // Generate mock motion events for demo
   useEffect(() => {
@@ -160,6 +180,36 @@ export function MotionCamTab() {
               Single
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Camera Selection */}
+      <div className="p-4 border-b border-[var(--border)] bg-[var(--bg-card)]">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium text-[var(--text-secondary)]">Active Cameras:</span>
+          {cameras.map(camera => (
+            <label key={camera.id} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-secondary)] rounded-lg cursor-pointer hover:bg-[var(--bg-tertiary)] transition-colors">
+              <input
+                type="checkbox"
+                checked={config.selectedCameras.includes(camera.id)}
+                onChange={() => handleCameraToggle(camera.id)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-[var(--text-primary)]">{camera.name}</span>
+              {camera.source === 'usb' && <span className="text-xs">📹</span>}
+              {camera.source === 'phone' && <span className="text-xs">📱</span>}
+              {camera.source === 'ip' && <span className="text-xs">🌐</span>}
+            </label>
+          ))}
+          <span className="text-sm text-[var(--text-secondary)] ml-auto">Sensitivity: {config.sensitivity}%</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={config.sensitivity}
+            onChange={(e) => handleSensitivityChange(parseInt(e.target.value))}
+            className="w-32"
+          />
         </div>
       </div>
 
