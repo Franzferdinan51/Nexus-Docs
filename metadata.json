@@ -1,5 +1,6 @@
 {
-  "name": "Epstein Nexus: Document Intelligence",
-  "description": "A sophisticated analytical platform for processing, analyzing, and visualizing complex legal documents. Features automated entity extraction, contextual summaries, and visual relationship mapping using the Gemini 3 Pro model.",
+  "name": "NexusDocs Intelligence Platform",
+  "description": "Unified intelligence platform with document analysis, real-time monitoring, motion detection, and phone forensics",
+  "version": "2.0.0",
   "requestFramePermissions": []
 }

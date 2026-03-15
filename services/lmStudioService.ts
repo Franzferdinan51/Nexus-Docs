@@ -215,22 +215,46 @@ Containing:
 `;
 
 export async function analyzeWithLMStudio(text: string, images: string[], endpoint: string, verificationTarget?: string, requestedModelId?: string, useSearch: boolean = false): Promise<DocumentAnalysis | null> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 86400000); // 24 hour timeout for massive batch runs
+  const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
+  const url = `${baseUrl}/v1/chat/completions`;
+  
+  // Retry configuration for unstable connections (Tailscale, etc.)
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 2000;
+  let lastError: any = null;
+  
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 86400000);
 
-  try {
-    const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
-    const url = `${baseUrl}/v1/chat/completions`;
+    try {
+      // Check connection before each attempt
+      if (attempt > 1) {
+        console.log(`[LM Studio] Retry attempt ${attempt}/${MAX_RETRIES}...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt)); // Exponential backoff
+        
+        // Quick connection check
+        const connectionCheck = await fetch(`${baseUrl}/v1/models`, { 
+          method: 'GET', 
+          signal: controller.signal,
+          mode: 'cors',
+          headers: { 'Accept': 'application/json' }
+        }).catch(() => ({ ok: false }));
+        
+        if (!connectionCheck.ok) {
+          throw new Error("Connection lost - LM Studio unreachable");
+        }
+      }
 
-    // Get the actual loaded model name OR use requested one
-    let modelId: string | null | undefined = requestedModelId;
-    if (!modelId) {
-      modelId = await getAvailableModel(baseUrl);
-    }
+      // Get the actual loaded model name OR use requested one
+      let modelId: string | null | undefined = requestedModelId;
+      if (!modelId) {
+        modelId = await getAvailableModel(baseUrl);
+      }
 
-    if (!modelId) {
-      throw new Error("No model loaded in LM Studio and no Model ID specified.");
-    }
+      if (!modelId) {
+        throw new Error("No model loaded in LM Studio and no Model ID specified.");
+      }
 
     const promptText = verificationTarget
       ? RESEARCH_PROMPT.replace("{{TARGET}}", verificationTarget) + (text ? `\nDOCUMENT CONTENT:\n${text.substring(0, 40000)}` : '')
@@ -349,19 +373,46 @@ export async function analyzeWithLMStudio(text: string, images: string[], endpoi
     };
   } catch (error: any) {
     clearTimeout(timeoutId);
+    lastError = error;
+    
+    // Check if this is a retryable error
+    const isRetryable = 
+      error.message?.includes('No models loaded') ||
+      error.message?.includes('Tailscale') ||
+      error.message?.includes('WebSocket') ||
+      error.message?.includes('Connection') ||
+      error.message?.includes('Failed to fetch');
+    
+    if (attempt < MAX_RETRIES && isRetryable) {
+      console.warn(`[LM Studio] Attempt ${attempt} failed: ${error.message}. Retrying...`);
+      continue; // Retry
+    }
+    
+    // All retries exhausted or non-retryable error
     if (error.name === 'AbortError') {
       throw new Error("Local inference timed out. The model took too long to respond.");
     }
     if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-      const isHttps = window.location.protocol === 'https:';
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
       let msg = "LM Studio Connection Failed.";
       if (isHttps) {
-        msg += " Mixed Content Blocked. Browsers block HTTPS -> HTTP localhost. You MUST allow 'Insecure Content' for this site in browser settings.";
+        msg += " Mixed Content Blocked. Browsers block HTTPS -> HTTP localhost. Allow 'Insecure Content' in browser settings.";
       } else {
-        msg += " Ensure CORS is enabled in LM Studio Server settings.";
+        msg += " Ensure CORS is enabled in LM Studio Server settings (Developer → CORS).";
       }
       throw new Error(msg);
     }
+    if (error.message?.includes('No models loaded')) {
+      throw new Error(`LM Studio: No model loaded. Please open LM Studio on the remote machine and load a model (e.g., qwen3.5-9b) in the Developer tab.`);
+    }
+    if (error.message?.includes('Tailscale') || error.message?.includes('WebSocket')) {
+      throw new Error(`LM Studio: Connection dropped (Tailscale/WebSocket). This is a network issue - check if the remote machine is awake and Tailscale is connected.`);
+    }
     throw error;
   }
+  
+  }
+  
+  // All retries exhausted
+  throw new Error(`LM Studio failed after ${MAX_RETRIES} attempts: ${lastError?.message || 'Unknown error'}`);
 }

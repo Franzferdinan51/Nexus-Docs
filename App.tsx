@@ -192,14 +192,23 @@ export default function App() {
       } else if (doc.type === 'text') {
         // Use pre-extracted content from upload
         text = doc.content || '';
+        console.log(`[Text File] ${doc.name}: ${text.length} chars loaded`);
       } else if (doc.type === 'image') {
         // Use pre-extracted base64 images from upload
         images = doc.images || [];
+        text = 'Image file - visual analysis';
+        console.log(`[Image File] ${doc.name}: ${images.length} image(s) ready for vision analysis`);
       } else {
         // PDF and other documents
-        const res = await processPdf(blob);
-        text = res.text;
-        images = res.images;
+        try {
+          const res = await processPdf(blob);
+          text = res.text;
+          images = res.images;
+        } catch (pdfErr: any) {
+          console.warn(`PDF process failed for ${doc.name}, treating as binary:`, pdfErr.message);
+          text = `Binary file: ${doc.name}`;
+          images = [];
+        }
       }
 
       let analysis: DocumentAnalysis | null = null;
@@ -209,7 +218,17 @@ export default function App() {
       // Read config from ref to get latest values
       const config = stateRef.current.config;
       const activeChain = config.priority.filter(p => config.enabled[p]);
-      if (activeChain.length === 0) throw new Error("No intelligence nodes enabled.");
+      
+      // Debug log for provider status
+      console.log(`[Processing ${doc.name}] Type: ${doc.type}, Enabled providers:`, 
+        activeChain, 
+        'Config:', 
+        Object.entries(config.enabled).filter(([k,v]) => v).map(([k]) => k)
+      );
+      
+      if (activeChain.length === 0) {
+        throw new Error("No intelligence nodes enabled. Go to Settings and enable at least one provider (Gemini, LM Studio, OpenClaw, etc.)");
+      }
 
       // runProvider is now hoisted and available via closure or callback
       // ...
@@ -357,8 +376,18 @@ export default function App() {
 
     } catch (err: any) {
       console.error(`Analysis failed for ${docId}:`, err);
+      console.error(`Error details:`, {
+        docId,
+        docName: doc?.name,
+        docType: doc?.type,
+        hasBlob: !!blob,
+        hasContent: !!(doc?.content),
+        hasImages: !!(doc?.images?.length),
+        error: err.message,
+        stack: err.stack
+      });
       updateDocStatus(docId, 'error');
-      showToast(`Error analyzing ${doc.name}: ${err.message.substring(0, 40)}`, "error");
+      showToast(`Error: ${doc?.name} - ${err.message.substring(0, 60)}`, "error");
       setState(prev => ({ ...prev }));
     } finally {
       setActiveAgentsCount(prev => prev - 1);

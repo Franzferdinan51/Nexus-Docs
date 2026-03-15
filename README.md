@@ -2,165 +2,555 @@
 
 # NexusDocs Intelligence Platform
 
-**NexusDocs** is a privacy-first, local-first AI platform designed for high-throughput document analysis, entity extraction, and intelligence gathering. It leverages a "Hybrid Swarm" architecture to combine the speed of local LLMs with the reasoning power of cloud models.
+**Version:** 2.0.0  
+**Release Date:** March 15, 2026
+
+**NexusDocs Intelligence Platform** is a privacy-first, local-first AI platform that combines document analysis, real-time monitoring, motion detection, and phone forensics into one unified system.
 
 ---
 
-## 🚀 Key Features
+## ⚠️ LEGAL WARNING
 
-### 🧠 Hybrid Swarm Architecture
-NexusDocs orchestrates multiple AI models working in concert:
-- **Parallel Swarm**: Run multiple agents (Gemini, OpenRouter, Local Models) simultaneously on a single document to gather diverse perspectives.
-- **Consensus Engine**: Automatically aggregates and cross-validates findings from all agents to reduce hallucinations (e.g., "[SWARM CONFIRMED]").
-- **Resilient Failover**: If a primary agent fails, the system automatically routes the task to the next available provider.
+**Only use this on devices you own or have permission to monitor.**
 
-### ⚡ Async Verification Pipeline ("Dual-Check")
-A non-blocking verification system designed for speed and accuracy:
-1.  **Fast Lane**: Your primary (fast/local) model scans documents rapidly.
-2.  **Smart Routing**: If a "High Priority Individual" (e.g., Politician, Executive, Celebrity) is detected, the document is marked as **"VERIFYING"** (Purple Badge).
-3.  **Background Verification**: A dedicated background agent picks up the task and uses your **Preferred Verifier** (e.g., Gemini with Google Search or a larger Local Model) to double-check the finding.
- *Result: You get the throughput of a small model with the accuracy of a large model.*
+- ✅ **Legal use:** Parents monitoring minor children, IT admins managing company devices, analyzing your own devices
+- ❌ **Illegal use:** Spying on someone without consent, stalking, unauthorized access
 
-### 📊 Deep Analytics & Verified Ledger
-Gain broad situational awareness over your document set:
-- **Verified Individuals Ledger**: A live, sorted ledger of every entity confirmed by your agents, ranked by reference count.
-- **Search & Filter**: Instantly filter the Verified Ledger by name or role to find specific subjects in large datasets.
-- **Dossier Mode**: Click any verified name to inspect specific mentions, context, and signal strength across all documents.
-- **Geographic & Corporate Matrix**: Visualize hotspots and organizational structures automatically extracted from the text.
-- **Master Event Timeline**: A horizontal, chronologically sorted visualization of all extracted events across the entire corpus.
-- **Premium Case Files**: Export a professional, print-ready HTML dossier containing all verified intelligence, formatted for official use.
+Using this tool to access devices you don't own or have explicit permission to monitor is illegal. Don't be creepy. Don't break the law.
 
-### 🖥️ Dynamic Local Nodes & Swarm
-Full support for **LM Studio** and local inference with advanced capabilities:
-- **JSON Enforcement**: Automatically "helps" local models output structured data by injecting strict system prompts, ensuring compatibility with the swarming engine.
-- **Swarm Consensus**: When "Parallel Swarm" is enabled, local models working alongside cloud models vote on findings. Verified entities are marked with `[SWARM CONFIRMED]`.
-- **Multi-Port Swarming**: Connect multiple local instances (e.g., Port 1234 and Port 1235) to simulate a local cluster.
-
-### 🕵️ Agent Intelligence (v2.0)
-The core agent has been upgraded with cognitive enhancements:
-- **Chain of Thought (CoT)**: System prompts now enforce "step-by-step" reasoning to reduce hallucinations.
-- **Confidence Scoring**: Every document is assigned a 0-100% confidence score based on extraction clarity.
-- **Timeline Reconstruction**: The agent automatically extracts a chronological list of events (`Date` -> `Event`) from case files.
-### 💬 Advanced Chat Interface
-A premium command center for interacting with your data:
-- **One-Tap Suggestions**: Rapidly launch "Briefings", "Risk Assessments", or "Entity Lists" with suggestion chips.
-- **Thinking State**: Visual pulse indicator ("Analyzing Vector Space...") for real-time feedback.
-- **Terminal UI**: Enhanced aesthetic for maximum readability and "hacker" feel.
+**By using this software, you agree to use it responsibly and legally.**
 
 ---
 
-## 💡 Operational Use Cases
-**NexusDocs** is engineered for high-stakes environments where privacy, speed, and depth of analysis are paramount:
+## 🚀 Platform Overview
 
-### 🕵️ Investigative Journalism
-*   **Shell Company Resolution**: Ingest thousands of leaked corporate registry PDFs to link "Anonymous LLCs" back to specific beneficial owners identified in email signatures.
-*   **Asset Tracing**: Use local vision models to scan seized hard drives for images of luxury assets (yachts, watches) or handwritten ledgers.
-*   **Cross-Referencing**: Instantly verify if a specific name mentioned in a 2015 report appears in a new 2024 dump.
+NexusDocs v2.0.0 merges four powerful systems:
 
-### ⚖️ Legal Defense & eDiscovery
-*   **Contradiction Spotting**: Automatically flag witness statements where dates or locations conflict with flight logs or cell tower records.
-*   **Privilege Review**: Rapidly classify unidentified documents as "Privileged" or "Responsive" based on entity context before manual review.
-*   **Timeline Construction**: Extract every date mentioned in 5,000 pages of discovery to build a master chronological event list.
-
-### 💰 Corporate Due Diligence
-*   **Risk Extraction**: Parse hundreds of vendor contracts to identify non-standard liability clauses or high-risk jurisdictions.
-*   **Executive Vetting**: Before a merger, cross-reference key executive names against global sanctions lists and negative news using the "Dual-Check" agent.
-*   **Signal Detection**: Monitor internal communication dumps for specific code words or patterns indicative of IP theft.
-
-### 🏛️ Historical & Academic Research
-*   **Primary Source Analysis**: OCR and analyze non-searchable archival scans (e.g., Cold War telexes) to map social networks of the era.
-*   **Policy Evolution**: Trace how specific terminology (e.g., "Climate Change") evolved across decades of government whitepapers.
-
-### 🌐 Human Rights Monitoring
-*   **Field Report Aggregation**: Ingest messy field notes and scanned witness testimonies to identify repeat perpetrators or locations of interest.
-*   **Visual Documentation**: Archive and analyze photo evidence of damage or locations, linking them to specific dates and events in the timeline.
+| Component | Description | Status |
+|-----------|-------------|--------|
+| **NexusDocs Core** | Document intelligence, entity extraction, AI analysis | ✅ Production |
+| **Palantir Home** | Smart home dashboard, automation triggers | ✅ Integrated |
+| **MotionCam** | Real-time camera monitoring, motion detection | ✅ Integrated |
+| **Serenity-Forensics** | Phone forensics, evidence extraction, analysis | ✅ Integrated |
 
 ---
 
-## 🛠️ Setup & Configuration
+## 📋 Feature Matrix
+
+### Document Intelligence (NexusDocs Core)
+
+| Feature | Description |
+|---------|-------------|
+| **Hybrid Swarm Architecture** | Run multiple AI providers (Gemini, OpenRouter, LM Studio, OpenClaw) simultaneously |
+| **Consensus Engine** | Cross-validation to reduce hallucinations with `[SWARM CONFIRMED]` markers |
+| **Dual-Check Pipeline** | Fast scan + background verification for high-priority entities |
+| **Entity Extraction** | Automatic detection of people, organizations, locations, dates |
+| **Timeline Reconstruction** | Chronological event extraction from documents |
+| **Verified Individuals Ledger** | Live, sorted ledger of confirmed entities |
+| **Native Video/Audio** | MP4, MOV, MP3, WAV ingestion with Gemini multimodal |
+| **Offline OCR** | Tesseract.js for local image text extraction |
+| **Confidence Scoring** | 0-100% confidence per document |
+| **Chain of Thought** | Step-by-step reasoning in AI analysis |
+
+### Camera Monitoring (MotionCam)
+
+| Feature | Description |
+|---------|-------------|
+| **Multi-Source Support** | USB webcam, RTSP/ONVIF IP cameras, Android ADB |
+| **MOG2 Motion Detection** | Background subtraction with configurable sensitivity |
+| **Real-Time Streaming** | WebSocket video broadcast to web clients |
+| **Auto-Capture** | Automatic snapshots on motion detection |
+| **Bounding Box Visualization** | Green overlay on detected motion |
+| **Event Logging** | Timestamped motion events with metadata |
+| **Multi-Camera Grid** | View 4+ cameras simultaneously |
+| **HTTP API Control** | Start/stop/configure via REST endpoints |
+
+### Smart Home (Palantir Home)
+
+| Feature | Description |
+|---------|-------------|
+| **Real-Time Dashboard** | Live monitoring widgets for all systems |
+| **Device Status Panels** | Track connected devices and services |
+| **Automation Triggers** | Define rules for alerts and actions |
+| **Alert Notifications** | Instant alerts via WebSocket |
+| **Cross-Platform Sync** | Synchronize state across devices |
+| **Storage Management** | Auto-cleanup, retention policies |
+
+### Phone Forensics (Serenity-Forensics)
+
+| Feature | Description |
+|---------|-------------|
+| **ADB Extraction** | SMS, MMS, call logs, contacts, photos, location |
+| **iOS Backup Parsing** | iMessages, photos from iTunes backups |
+| **Media Metadata** | EXIF extraction (GPS, timestamps, device info) |
+| **Verification Code Detection** | Automatic extraction of OTP codes |
+| **Hidden Content Detection** | Find trashed files, hidden folders, vault apps |
+| **Evidence Organization** | Structured folder hierarchy for case files |
+| **Red Flag Analysis** | Pattern-based concerning behavior detection |
+| **Timeline Generation** | Unified timeline from multiple data sources |
+
+---
+
+## 🛠️ Installation
 
 ### Prerequisites
-- **Node.js**: v18 or higher.
-- **LM Studio** (Optional): For local LLM inference.
 
-### Installation
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/your-repo/nexusdocs.git
-    cd nexusdocs
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Configure Environment:
-    Create a `.env.local` file (optional, or configure via UI settings):
-    ```env
-    VITE_GEMINI_API_KEY=your_key_here
-    VITE_OPENROUTER_API_KEY=your_key_here
-    ```
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| **Node.js** | v18+ | Required for NexusDocs Core |
+| **Python** | 3.9+ | Required for MotionCam and Palantir |
+| **ADB** | Latest | Required for Serenity-Forensics |
+| **LM Studio** | Optional | For local LLM inference |
+| **OpenClaw Gateway** | Optional | For Bailian model access |
 
-### Running Locally
+### Quick Start
+
 ```bash
+# Clone the repository
+git clone https://github.com/Franzferdinan51/nexusdocs-intelligence.git
+cd nexusdocs-intelligence
+
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
 ```
+
 Access the dashboard at `http://localhost:5173`.
+
+### Production Build
+
+```bash
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker build -t nexusdocs .
+
+# Run container
+docker run -p 5173:5173 nexusdocs
+```
 
 ---
 
 ## ⚙️ Configuration Guide
 
-### Enabling "Dual-Check" Mode
-1.  Go to **Settings** (Gear Icon).
-2.  Enable **"Dual Check Mode"**.
-3.  Select your **"Preferred Verifier"** (e.g., "Local Model B" or "Gemini").
-    *   *Tip: Use a small model for the main loop and a large/reasoning model for the verifier.*
+### Environment Variables
 
-### Connecting LM Studio
-1.  Start LM Studio and load a model.
-2.  Start the Local Server (Default Port: `1234`).
-3.  In NexusDocs **Settings**, enable "Local Model A" and verify the endpoint is `http://127.0.0.1:1234`.
-4.  (Optional) Enter the specific **Model ID** (e.g., `llama-3-8b`) if you want NexusDocs to request a specific model load.
+Create a `.env.local` file:
+
+```env
+# Gemini API (for cloud analysis)
+VITE_GEMINI_API_KEY=your_gemini_key
+
+# OpenRouter API (alternative cloud provider)
+VITE_OPENROUTER_API_KEY=your_openrouter_key
+
+# OpenClaw Gateway (Bailian models)
+VITE_OPENCLAW_ENDPOINT=http://localhost:18789
+VITE_OPENCLAW_MODEL=bailian/qwen3.5-plus
+```
+
+### Model Configuration
+
+```typescript
+interface ModelConfig {
+  priority: ('gemini' | 'openrouter' | 'lmstudio' | 'lmstudio2' | 'openclaw')[];
+  enabled: {
+    gemini: boolean;
+    openrouter: boolean;
+    lmstudio: boolean;
+    lmstudio2: boolean;
+    openclaw: boolean;
+  };
+  dualCheckMode: boolean;
+  preferredVerifier: 'auto' | 'gemini' | 'openrouter' | 'lmstudio' | 'openclaw';
+  parallelAnalysis: boolean;
+}
+```
+
+### LM Studio Setup
+
+1. **Install LM Studio** from [lmstudio.ai](https://lmstudio.ai)
+2. **Load a model** (recommended: `qwen3-vl-8b` for vision)
+3. **Start Server** in Developer tab (default port: 1234)
+4. **Enable CORS** in LM Studio settings
+5. **Configure NexusDocs**:
+   ```json
+   {
+     "lmStudioEndpoint": "http://127.0.0.1:1234",
+     "lmStudioModel": "qwen3-vl-8b",
+     "enabled": { "lmstudio": true }
+   }
+   ```
+
+### OpenClaw Integration
+
+OpenClaw provides access to Bailian models with generous free quotas:
+
+| Model | Context | Cost | Best For |
+|-------|---------|------|----------|
+| `bailian/qwen3.5-plus` | 1M tokens | 18K/mo quota | Main analysis |
+| `bailian/MiniMax-M2.5` | 196k tokens | ✅ FREE | Sub-agents |
+| `bailian/kimi-k2.5` | 196k tokens | ✅ FREE | Vision tasks |
+| `bailian/glm-5` | 128k tokens | API credits | Fast coding |
+
+**Configuration:**
+```bash
+# Start OpenClaw Gateway
+openclaw gateway start
+
+# Verify connection
+curl http://localhost:18789/health
+```
 
 ---
 
-## 🔒 Privacy & Security
-- **Local First**: Files are processed in your browser or sent directly to your local LM Studio instance.
-- **No Persistence**: Document data is stored in `IndexedDB` (browser storage) and is never uploaded to a central NexusDocs server.
-- **Keys**: API keys are stored in `localStorage` on your device.
+## 📷 Camera Setup (MotionCam)
+
+### USB Webcam
+
+```bash
+# Verify device
+ls /dev/video*
+
+# Configure in settings
+```
+```json
+{
+  "cameras": [{
+    "id": "usb-0",
+    "type": "usb",
+    "device": "/dev/video0",
+    "name": "USB Webcam",
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  }]
+}
+```
+
+### Android Phone Camera (ADB)
+
+```bash
+# Enable USB debugging on phone
+# Settings → Developer Options → USB Debugging
+
+# Connect and authorize
+adb devices
+
+# Configure wireless ADB (optional)
+adb tcpip 5555
+adb connect 192.168.1.251:5555
+```
+
+```json
+{
+  "cameras": [{
+    "id": "phone-0",
+    "type": "adb",
+    "device": "192.168.1.251:5555",
+    "name": "Android Phone"
+  }]
+}
+```
+
+### RTSP/IP Camera
+
+```json
+{
+  "cameras": [{
+    "id": "ip-0",
+    "type": "rtsp",
+    "url": "rtsp://user:pass@192.168.1.50:554/stream",
+    "name": "IP Camera"
+  }]
+}
+```
+
+### Motion Detection Configuration
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| `threshold` | 5-100 | 25 | Motion sensitivity (lower = more sensitive) |
+| `minArea` | 100-5000 | 500 | Minimum contour area (pixels) |
+| `maxArea` | 10000-100000 | 50000 | Maximum contour area (pixels) |
+| `blurSize` | Odd numbers | 21 | Gaussian blur kernel |
 
 ---
+
+## 📱 Phone Forensics (Serenity-Forensics)
+
+### Android Extraction
+
+```bash
+# Enable USB debugging
+# Settings → About Phone → Tap "Build Number" 7 times
+# Settings → Developer Options → USB Debugging → ON
+
+# Verify connection
+adb devices
+
+# Extract data
+adb shell content query --uri content://sms/ > sms.txt
+adb pull /sdcard/DCIM/ ./media/
+```
+
+### Data Types Extracted
+
+| Data Type | Method | Output |
+|-----------|--------|--------|
+| SMS/MMS | `content://sms/` | JSON, CSV |
+| Call Logs | `content://call_log/calls` | JSON |
+| Contacts | `content://contacts/` | JSON, VCF |
+| Photos | `adb pull /sdcard/DCIM/` | JPEG + EXIF |
+| Location | Google Takeout | JSON |
+| Apps | `pm list packages` | TXT |
+
+### Evidence Organization
+
+```
+case-name/
+├── device/
+│   └── device_info.txt
+├── apps/
+│   ├── user_installed_packages.txt
+│   └── app_permissions.csv
+├── app_exports/
+│   ├── google_messages/
+│   ├── whatsapp/
+│   └── snapchat/
+├── calls/
+│   └── call_log_raw.txt
+├── contacts/
+│   └── contacts_raw.txt
+├── media/
+│   ├── DCIM/
+│   └── Pictures/
+└── reports/
+    ├── wrongdoing_evidence/
+    ├── media_triage/
+    └── telephony_dumps/
+```
+
+### Red Flag Detection
+
+Serenity-Forensics automatically detects:
+- 🔴 **HIGH** - Direct evidence of rule violations
+- 🟠 **ELEVATED** - Indirect indicators
+- 🟡 **MEDIUM** - Behavioral concerns
+- ℹ️ **INFO** - Contextual data
+
+**Categories:**
+- `SNEAKING_OUT` - Physical rule violations
+- `DATING_APPS` - Age-restricted platform usage
+- `CONCEALMENT` - Hiding content/apps
+- `LATE_NIGHT` - Sleep-hour device usage
+- `SOCIAL_MEDIA` - Platform-specific activity
+
+---
+
+## 💡 Usage Examples
+
+### Document Analysis
+
+```typescript
+// Upload and analyze a document
+const doc = await processPdf(file);
+const analysis = await analyzeWithSwarm(doc.content, doc.images);
+console.log(analysis.entities);
+// Output: [{ name: "John Doe", role: "Executive", isFamous: true, ... }]
+```
+
+### Parallel Swarm Analysis
+
+```typescript
+// Configure parallel analysis
+config.parallelAnalysis = true;
+config.enabled = {
+  gemini: true,
+  lmstudio: true,
+  openclaw: true
+};
+
+// All providers analyze simultaneously
+// Consensus engine cross-validates results
+```
+
+### Camera Monitoring
+
+```javascript
+// WebSocket video streaming
+const socket = io('http://localhost:8765');
+socket.on('video_frame', (data) => {
+  document.getElementById('video').src = 'data:image/jpeg;base64,' + data.frame;
+  if (data.motion) {
+    console.log('Motion detected!', data.boxes);
+  }
+});
+```
+
+### Phone Extraction
+
+```python
+# Python extraction script
+import subprocess
+
+def extract_sms():
+    result = subprocess.run(
+        ['adb', 'shell', 'content', 'query', '--uri', 'content://sms/'],
+        capture_output=True, text=True
+    )
+    return parse_sms_output(result.stdout)
+```
+
+---
+
+## 📖 API Reference
+
+### REST Endpoints
+
+#### Document Analysis
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/documents` | POST | Upload document for analysis |
+| `/api/documents/:id` | GET | Get document analysis results |
+| `/api/entities` | GET | Get verified entities ledger |
+| `/api/timeline` | GET | Get reconstructed timeline |
+
+#### Camera Control
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/cameras` | GET | List all cameras |
+| `/api/cameras/:id/start` | POST | Start monitoring |
+| `/api/cameras/:id/stop` | POST | Stop monitoring |
+| `/api/cameras/:id/snapshot` | POST | Take manual snapshot |
+| `/api/events` | GET | Get motion events |
+
+#### Phone Forensics
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/nexus/devices` | GET | List connected devices |
+| `/api/nexus/extract/sms` | POST | Extract SMS messages |
+| `/api/nexus/extract/calls` | POST | Extract call logs |
+| `/api/nexus/extract/photos` | POST | Extract photos with EXIF |
+
+### WebSocket Events
+
+| Event | Direction | Payload |
+|-------|-----------|---------|
+| `video_frame` | Server → Client | `{ frame, motion, fps, boxes }` |
+| `motion_detected` | Server → Client | `{ timestamp, area, boxes }` |
+| `snapshot_saved` | Server → Client | `{ path, reason }` |
+| `status_update` | Server → Client | `{ running, motion_detected, count }` |
 
 ---
 
 ## ❓ Troubleshooting
-**Local Model Swarm Not Working?**
-- Ensure LM Studio is running in **Server Mode**.
-- Verify CORS is enabled in LM Studio settings.
-- Check the Console (F12) for specific swarming errors (e.g., `Parallel Agent [lmstudio] FAILED`).
 
-**Dual Check Not Triggering?**
-- Verify the "Dual Check Mode" toggle is ON in Settings.
-- Ensure the primary model is finding entities classified as "High Priority" (Politicians, Executives).
+### LM Studio Not Connecting
+
+- ✅ Ensure LM Studio is running in **Server Mode**
+- ✅ Verify CORS is enabled in Developer settings
+- ✅ Check firewall allows port 1234
+- ✅ Test: `curl http://127.0.0.1:1234/v1/models`
+
+### OpenClaw Connection Failed
+
+- ✅ Run `openclaw gateway status`
+- ✅ Check port 18789 is available
+- ✅ Verify OpenClaw is installed: `openclaw --version`
+
+### Camera Not Detected
+
+- ✅ Check device permissions: `ls -la /dev/video*`
+- ✅ Add user to video group: `sudo usermod -aG video $USER`
+- ✅ For ADB: verify device is authorized (`adb devices`)
+
+### Vision Analysis Fails
+
+- ✅ Use a vision-capable model (check name contains "vl" or "vision")
+- ✅ Verify image format (JPEG, PNG)
+- ✅ Check image size (< 10MB recommended)
+
+### ADB Device Unauthorized
+
+- ✅ Enable USB debugging on device
+- ✅ Accept RSA key authorization prompt on device
+- ✅ Revoke and re-authorize: `adb kill-server && adb start-server`
 
 ---
-
-## 🎥 Multimodal Analysis
-NexusDocs supports **Native Video (`.mp4`, `.mov`)** and **Audio (`.mp3`, `.wav`)** ingestion.
-
-> [!IMPORTANT]
-> **Gemini Required for Media**: Video/Audio analysis relies on **Google Gemini's** native multimodal token window (`gemini-1.5-pro`, `gemini-exp-1206`, etc.).
-> Local models (Llama 3) and standard LLMs are **text-only** and cannot "see" video or "hear" audio directly.
->
-> *Supported Models*: `gemini-1.5-pro` (Recommended), `gemini-1.5-flash`, `gemini-exp-1206`, `gemini-2.0-flash-exp`.
 
 ## 📅 Roadmap
-- [x] **Graph Visualization**: Interactive node-link diagram of all verified entities.
-- [x] **Native Video & Audio**: Support for MP4/MP3 ingestion to analyze bodycam footage and wiretaps.
-- [x] **Offline OCR**: Integrate Tesseract.js for purely local image text extraction.
-- [ ] **Local Transcription Layer**: Integrate Whisper.cpp for offline audio-to-text conversion (enabling local model support for audio).
+
+### Completed (v2.0.0)
+
+- [x] Hybrid Swarm Architecture
+- [x] Dual-Check Verification Pipeline
+- [x] Native Video/Audio Support
+- [x] Offline OCR (Tesseract.js)
+- [x] OpenClaw Integration
+- [x] MotionCam Merge
+- [x] Palantir Home Integration
+- [x] Serenity-Forensics Integration
+
+### Planned (v2.1.0)
+
+- [ ] Local Transcription (Whisper.cpp)
+- [ ] Mobile App (React Native)
+- [ ] Plugin System
+- [ ] Advanced Analytics Dashboard
+- [ ] Multi-Language OCR
+
+### Planned (v2.2.0)
+
+- [ ] Facial Recognition with Known Faces Database
+- [ ] Object Detection (80+ COCO classes)
+- [ ] Cloud Sync (S3, Google Drive)
+- [ ] Real-Time Collaboration
 
 ---
 
-## License
-MIT License.
+## 🔒 Privacy & Security
+
+- **Local First**: Files processed in browser or sent to local LM Studio
+- **No Central Persistence**: Documents stored in IndexedDB (browser storage)
+- **Keys Local**: API keys stored in localStorage on your device
+- **Configurable**: Choose which providers to enable
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+## 🙏 Credits
+
+| Component | Source |
+|-----------|--------|
+| **NexusDocs Core** | Document intelligence platform |
+| **Palantir Home** | Smart home dashboard |
+| **MotionCam** | Camera monitoring system |
+| **Serenity-Forensics** | Phone forensics toolkit |
+| **OpenClaw** | AI agent framework |
+| **LM Studio** | Local LLM inference |
+| **Tesseract.js** | Browser OCR |
+
+---
+
+**Version:** 2.0.0  
+**Last Updated:** March 15, 2026  
+**Repository:** https://github.com/Franzferdinan51/nexusdocs-intelligence
