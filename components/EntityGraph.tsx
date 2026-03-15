@@ -178,7 +178,10 @@ export function EntityGraph({ data }: { data: any[] }) {
     };
 
     const handleMouseDown = (e: any) => {
-        const { x, y, sx, sy } = getTransformedPoint(e);
+        const point = getTransformedPoint(e);
+        const { x, y } = point;
+        const sx = point.sx ?? 0;
+        const sy = point.sy ?? 0;
 
         // Check Node Hit
         const hit = entities.find(n =>
@@ -196,7 +199,10 @@ export function EntityGraph({ data }: { data: any[] }) {
     };
 
     const handleMouseMove = (e: any) => {
-        const { x, y, sx, sy } = getTransformedPoint(e);
+        const point = getTransformedPoint(e);
+        const { x, y } = point;
+        const sx = point.sx ?? 0;
+        const sy = point.sy ?? 0;
 
         if (dragging) {
             dragging.x = x;

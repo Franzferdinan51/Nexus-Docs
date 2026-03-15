@@ -489,7 +489,7 @@ export default function App() {
         if (file.name.endsWith('.zip')) {
           const zip = await JSZip.loadAsync(file);
           const entries = Object.entries(zip.files)
-            .filter(([filename, entry]) => !entry.dir && filename.toLowerCase().endsWith('.pdf'))
+            .filter(([filename, entry]) => !(entry as any).dir && filename.toLowerCase().endsWith('.pdf'))
             .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }));
 
           for (const [filename, zipEntry] of entries as [string, any][]) {
@@ -628,8 +628,7 @@ export default function App() {
               className="hidden" 
               multiple 
               accept=".zip,.pdf,.mp4,.mov,.mp3,.wav,.md,.txt,.json,.csv,.html,.xml,.log,.tsv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.m4a,.ogg,.flac,.avi,.webm"
-              webkitdirectory="" 
-              directory="" 
+              {...({ webkitdirectory: 'true', directory: 'true' } as any)}
               onChange={handleFileUpload} 
             />
           </label>
@@ -1274,7 +1273,7 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
     if (!localConfig.enabled.gemini && !localConfig.enabled.openrouter && !localConfig.enabled.lmstudio) {
       showToast("At least one provider must be enabled.", "error"); return;
     }
-    setState(p => ({ ...p, config: localConfig }));
+    setState((p: AppState) => ({ ...p, config: localConfig }));
     showToast("Nexus Resilience Applied.");
   };
 
@@ -1320,7 +1319,7 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
           <section className="space-y-3">
             <h3 className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Execution Priority & Enablement</h3>
             <div className="space-y-2">
-              {localConfig.priority.map((p, i) => (
+              {localConfig.priority.map((p: string, i: number) => (
                 <div key={p} className={`flex items-center gap-3 p-3 bg-slate-950/40 border rounded-lg group transition-all ${localConfig.enabled[p] ? 'border-indigo-500/30' : 'border-slate-800 opacity-60'}`}>
                   <button onClick={() => toggleProvider(p)} className={`shrink-0 transition-colors ${localConfig.enabled[p] ? 'text-indigo-500' : 'text-slate-600'}`}>
                     {localConfig.enabled[p] ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
