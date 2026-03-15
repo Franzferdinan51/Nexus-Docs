@@ -14,6 +14,11 @@ import { analyzeWithOpenRouter } from './services/openRouterService';
 import { analyzeWithOpenClaw, testOpenClawConnection } from './services/openclawService';
 import { saveDocument, getDocuments, clearDocuments } from './db';
 import { EntityGraph } from './components/EntityGraph';
+import { TabNavigation } from './components/tabs/TabNavigation';
+import { DashboardTab } from './components/tabs/DashboardTab';
+import { PhoneForensicsTab } from './components/tabs/PhoneForensicsTab';
+import { MotionCamTab } from './components/tabs/MotionCamTab';
+import { SettingsTab } from './components/settings/SettingsTab';
 
 declare const JSZip: any;
 
@@ -612,12 +617,12 @@ export default function App() {
           {isSidebarOpen && <span className="font-black text-sm tracking-tighter uppercase truncate">NEXUS CORE</span>}
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto custom-scrollbar">
-          <NavItem icon={<LayoutDashboard className="w-4 h-4" />} label="Intelligence" active={state.view === 'dashboard'} onClick={() => setState(p => ({ ...p, view: 'dashboard' }))} collapsed={!isSidebarOpen} />
-          <NavItem icon={<FolderOpen className="w-4 h-4" />} label="Archive" active={state.view === 'documents'} onClick={() => setState(p => ({ ...p, view: 'documents' }))} collapsed={!isSidebarOpen} />
+          <NavItem icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" active={state.view === 'dashboard'} onClick={() => setState(p => ({ ...p, view: 'dashboard' }))} collapsed={!isSidebarOpen} />
+          <NavItem icon={<FolderOpen className="w-4 h-4" />} label="Documents" active={state.view === 'documents'} onClick={() => setState(p => ({ ...p, view: 'documents' }))} collapsed={!isSidebarOpen} />
+          <NavItem icon={<Smartphone className="w-4 h-4" />} label="Phone Forensics" active={state.view === 'phone'} onClick={() => setState(p => ({ ...p, view: 'phone' }))} collapsed={!isSidebarOpen} />
+          <NavItem icon={<Camera className="w-4 h-4" />} label="MotionCam" active={state.view === 'motioncam'} onClick={() => setState(p => ({ ...p, view: 'motioncam' }))} collapsed={!isSidebarOpen} />
           <NavItem icon={<Users className="w-4 h-4" />} label="Network" active={state.view === 'pois'} onClick={() => setState(p => ({ ...p, view: 'pois' }))} collapsed={!isSidebarOpen} badge={state.pois.length} />
-          <NavItem icon={<MessageSquare className="w-4 h-4" />} label="Agent" active={state.view === 'chat'} onClick={() => setState(p => ({ ...p, view: 'chat' }))} collapsed={!isSidebarOpen} />
-          <NavItem icon={<BarChart3 className="w-4 h-4" />} label="Analytics" active={state.view === 'analytics'} onClick={() => setState(p => ({ ...p, view: 'analytics' }))} collapsed={!isSidebarOpen} />
-          <NavItem icon={<Settings className="w-4 h-4" />} label="Control" active={state.view === 'settings'} onClick={() => setState(p => ({ ...p, view: 'settings' }))} collapsed={!isSidebarOpen} />
+          <NavItem icon={<Settings className="w-4 h-4" />} label="Settings" active={state.view === 'settings'} onClick={() => setState(p => ({ ...p, view: 'settings' }))} collapsed={!isSidebarOpen} />
         </nav>
         <div className="p-2 border-t border-slate-800 space-y-2">
           <label className="flex items-center justify-center gap-2 p-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer transition-all shadow-md active:scale-95 group">
@@ -653,13 +658,15 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-          {state.view === 'dashboard' && <DashboardView state={state} setState={setState} />}
+        <div className="flex-1 overflow-y-auto p-0 custom-scrollbar">
+          {state.view === 'dashboard' && <DashboardTab />}
           {state.view === 'documents' && <DocumentsView state={state} setState={setState} searchQuery={searchQuery} restartAnalysis={restartAnalysis} />}
           {state.view === 'document_detail' && <DocumentDetailView state={state} setState={setState} shareToX={shareToX} />}
+          {state.view === 'phone' && <PhoneForensicsTab />}
+          {state.view === 'motioncam' && <MotionCamTab />}
           {state.view === 'pois' && <POIView state={state} setState={setState} shareToX={shareToX} />}
           {state.view === 'chat' && <AgentChatView state={state} chatInput={chatInput} setChatInput={setChatInput} handleChat={handleChat} />}
-          {state.view === 'settings' && <SettingsView state={state} setState={setState} showToast={showToast} resetArchive={resetArchive} />}
+          {state.view === 'settings' && <SettingsTab state={state} setState={setState} />}
           {state.view === 'analytics' && <AnalyticsView state={state} setState={setState} />}
         </div>
       </main>
