@@ -14,11 +14,11 @@ import { analyzeWithOpenRouter } from './services/openRouterService';
 import { analyzeWithOpenClaw, testOpenClawConnection } from './services/openclawService';
 import { saveDocument, getDocuments, clearDocuments } from './db';
 import { EntityGraph } from './components/EntityGraph';
-import { TabNavigation } from './components/tabs/TabNavigation';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { PhoneForensicsTab } from './components/tabs/PhoneForensicsTab';
 import { MotionCamTab } from './components/tabs/MotionCamTab';
 import { SettingsTab } from './components/settings/SettingsTab';
+import { Smartphone, Camera } from 'lucide-react';
 
 declare const JSZip: any;
 
