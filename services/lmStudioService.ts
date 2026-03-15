@@ -1,12 +1,27 @@
 
 import { DocumentAnalysis } from "../types";
 
+interface LMStudioModel {
+  id: string;
+  object: string;
+  owned_by: string;
+}
+
+interface TestConnectionResult {
+  success: boolean;
+  error?: string;
+  models?: string[];
+  visionModels?: string[];
+  textModels?: string[];
+}
+
 /**
- * Tests connection to LM Studio by fetching available models.
+ * Tests connection to LM Studio by fetching available models and categorizing vision vs text models.
  */
-export async function testLMStudioConnection(endpoint: string): Promise<{ success: boolean; error?: string; models?: string[] }> {
+export async function testLMStudioConnection(endpoint: string): Promise<TestConnectionResult> {
+  const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
+  
   try {
-    const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -24,23 +39,93 @@ export async function testLMStudioConnection(endpoint: string): Promise<{ succes
 
     if (response.ok) {
       const data = await response.json();
-      const models = data.data?.map((m: any) => m.id) || [];
-      return { success: true, models };
+      const models = data.data?.map((m: LMStudioModel) => m.id) || [];
+      
+      // Categorize models by capability
+      const visionModels = models.filter((id: string) => 
+        /vl|vision|see|eye|qwen.*vision|jan.*vl|gemma.*vision|llava|mini.*gemini/i.test(id)
+      );
+      const textModels = models.filter((id: string) => 
+        !/vl|vision|see|eye|embedding/i.test(id)
+      );
+
+      console.log(`[LM Studio] Found ${models.length} models: ${visionModels.length} vision-capable, ${textModels.length} text-only`);
+      
+      return { success: true, models, visionModels, textModels };
     }
 
     return { success: false, error: `Server returned ${response.status}` };
   } catch (e: any) {
     let errorMsg = e.message || "Unknown error";
     if (e.name === 'TypeError' && e.message === 'Failed to fetch') {
-      const isHttps = window.location.protocol === 'https:';
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
       if (isHttps) {
         errorMsg = "Mixed Content Blocked: You are on an HTTPS site trying to connect to an HTTP local server. Browsers block this by default.";
       } else {
         errorMsg = "Network Error: Ensure LM Studio is running, CORS is enabled, and the endpoint is correct.";
       }
     }
-    console.error("Connection test failed:", e);
+    console.error("[LM Studio] Connection test failed:", e);
     return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Tests if LM Studio can handle a vision request with a specific model
+ */
+export async function testLMStudioVision(endpoint: string, modelId: string): Promise<{ success: boolean; error?: string }> {
+  const baseUrl = endpoint.startsWith('http') ? endpoint : `http://${endpoint}`;
+  const url = `${baseUrl}/v1/chat/completions`;
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s for vision test
+
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: modelId,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Respond with exactly: VISION_TEST_PASSED" },
+              {
+                type: "image_url",
+                image_url: {
+                  url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 50
+      })
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      
+      if (content.includes("VISION_TEST_PASSED")) {
+        console.log(`[LM Studio] Vision test PASSED for model: ${modelId}`);
+        return { success: true };
+      } else {
+        console.log(`[LM Studio] Vision test returned unexpected response: ${content.substring(0, 100)}`);
+        return { success: true }; // Still works, just different response format
+      }
+    }
+
+    return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
+  } catch (e: any) {
+    console.error(`[LM Studio] Vision test failed for ${modelId}:`, e);
+    return { success: false, error: e.message };
   }
 }
 

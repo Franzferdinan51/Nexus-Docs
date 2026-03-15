@@ -11,6 +11,7 @@ import { processPdf } from './services/pdfProcessor';
 import { analyzeDocument, ragChat } from './services/geminiService';
 import { analyzeWithLMStudio, testLMStudioConnection } from './services/lmStudioService';
 import { analyzeWithOpenRouter } from './services/openRouterService';
+import { analyzeWithOpenClaw, testOpenClawConnection } from './services/openclawService';
 import { saveDocument, getDocuments, clearDocuments } from './db';
 import { EntityGraph } from './components/EntityGraph';
 
@@ -57,14 +58,16 @@ export default function App() {
       isProcessing: false,
       view: 'dashboard',
       config: {
-        priority: ['gemini', 'openrouter', 'lmstudio', 'lmstudio2'] as string[],
-        enabled: { gemini: true, openrouter: false, lmstudio: false, lmstudio2: false },
+        priority: ['gemini', 'openrouter', 'lmstudio', 'lmstudio2', 'openclaw'] as string[],
+        enabled: { gemini: true, openrouter: false, lmstudio: false, lmstudio2: false, openclaw: false },
         geminiKey: '',
         openRouterKey: '',
         lmStudioEndpoint: 'http://127.0.0.1:1234',
         lmStudioModel: '',
         lmStudioEndpoint2: 'http://127.0.0.1:1234',
         lmStudioModel2: '',
+        openClawEndpoint: 'http://localhost:18789',
+        openClawModel: 'bailian/qwen3.5-plus',
         preferredVerifier: 'auto' as const,
         geminiModel: 'gemini-1.5-flash',
         openRouterModel: 'google/gemini-2.0-flash-001',
@@ -143,12 +146,14 @@ export default function App() {
     else if (provider === 'openrouter') modelIdLog = cfg.openRouterModel;
     else if (provider === 'lmstudio') modelIdLog = cfg.lmStudioModel || 'Auto-Detect';
     else if (provider === 'lmstudio2') modelIdLog = cfg.lmStudioModel2 || 'Auto-Detect';
+    else if (provider === 'openclaw') modelIdLog = cfg.openClawModel || 'bailian/qwen3.5-plus';
 
     console.log(`[Invoking ${provider}] Model: ${modelIdLog}`);
     if (provider === 'gemini') return analyzeDocument(t, i, cfg.geminiKey, cfg.geminiModel, verificationTarget, useSearch, (arguments[5] as any));
     if (provider === 'openrouter') return analyzeWithOpenRouter(t, i, cfg.openRouterKey, cfg.openRouterModel, verificationTarget);
     if (provider === 'lmstudio') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint, verificationTarget, cfg.lmStudioModel, useSearch);
     if (provider === 'lmstudio2') return analyzeWithLMStudio(t, i, cfg.lmStudioEndpoint2, verificationTarget, cfg.lmStudioModel2, useSearch);
+    if (provider === 'openclaw') return analyzeWithOpenClaw(t, i, { endpoint: cfg.openClawEndpoint, model: cfg.openClawModel }, verificationTarget, useSearch, (arguments[5] as any));
     throw new Error(`Unknown provider ${provider}`);
   }, []);
 
@@ -1227,8 +1232,18 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
     setTestStatus('testing');
     setTestError(null);
     const result = await testLMStudioConnection(localConfig.lmStudioEndpoint);
-    if (result.success) { setTestStatus('success'); showToast("Connection Successful!"); }
-    else { setTestStatus('fail'); setTestError(result.error || "Failed."); showToast("Connection Failed.", "error"); }
+    if (result.success) {
+      setTestStatus('success');
+      const visionCount = result.visionModels?.length || 0;
+      const textCount = result.textModels?.length || 0;
+      const visionList = result.visionModels?.slice(0, 5).join(', ') || 'None';
+      console.log(`[LM Studio Test] Success: ${result.models?.length || 0} models, ${visionCount} vision, ${textCount} text`);
+      showToast(`Connected! ${result.models?.length || 0} models (${visionCount} vision-capable)`);
+    } else {
+      setTestStatus('fail');
+      setTestError(result.error || "Failed.");
+      showToast("Connection Failed: " + (result.error || "Unknown error"), "error");
+    }
   };
 
   return (
@@ -1279,8 +1294,9 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
                     <option value="auto">Auto (Best Available)</option>
                     <option value="gemini">Gemini (Web Search)</option>
                     <option value="openrouter">OpenRouter</option>
-                    <option value="lmstudio">Model A</option>
-                    <option value="lmstudio2">Model B</option>
+                    <option value="lmstudio">LM Studio A</option>
+                    <option value="lmstudio2">LM Studio B</option>
+                    <option value="openclaw">OpenClaw Gateway</option>
                   </select>
                 </div>
               )}
@@ -1404,6 +1420,40 @@ function SettingsView({ state, setState, showToast, resetArchive }: any) {
                 <label className="text-[7px] font-black uppercase text-slate-500">Model ID (Optional)</label>
                 <input type="text" placeholder="Auto-Load" className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] font-mono outline-none focus:border-indigo-500" value={localConfig.lmStudioModel2 || ''} onChange={e => setLocalConfig({ ...localConfig, lmStudioModel2: e.target.value })} />
               </div>
+            </div>
+          </div>
+
+          {/* OpenClaw Config */}
+          <div className={`p-4 bg-slate-950/40 border border-slate-800 rounded-xl space-y-4 transition-all ${localConfig.enabled.openclaw ? 'border-indigo-500/20' : 'grayscale opacity-30 pointer-events-none'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-violet-500"></div><span className="text-[10px] font-black uppercase text-white">OpenClaw Gateway</span></div>
+              <button onClick={async () => {
+                const result = await testOpenClawConnection(localConfig.openClawEndpoint);
+                showToast(result.message, result.ok ? 'success' : 'error');
+              }} className="text-[7px] font-black text-slate-500 hover:text-white uppercase transition-all">Test Connection</button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[7px] font-black uppercase text-slate-500">Gateway Endpoint</label>
+                <input type="text" className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] font-mono outline-none focus:border-indigo-500" value={localConfig.openClawEndpoint} onChange={e => setLocalConfig({ ...localConfig, openClawEndpoint: e.target.value })} placeholder="http://localhost:18789" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[7px] font-black uppercase text-slate-500">Bailian Model</label>
+                <select
+                  className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[9px] uppercase font-bold outline-none focus:border-indigo-500"
+                  value={localConfig.openClawModel}
+                  onChange={e => setLocalConfig({ ...localConfig, openClawModel: e.target.value })}
+                >
+                  <option value="bailian/qwen3.5-plus">qwen3.5-plus (Best Reasoning)</option>
+                  <option value="bailian/MiniMax-M2.5">MiniMax-M2.5 (FREE Unlimited)</option>
+                  <option value="bailian/kimi-k2.5">kimi-k2.5 (FREE Vision)</option>
+                  <option value="bailian/glm-5">glm-5 (Fast Coding)</option>
+                  <option value="bailian/glm-4.7">glm-4.7 (Fallback)</option>
+                </select>
+              </div>
+            </div>
+            <div className="text-[7px] text-slate-500 uppercase">
+              ✓ Bailian unified billing • ✓ No ban risk • ✓ 1M context available
             </div>
           </div>
 

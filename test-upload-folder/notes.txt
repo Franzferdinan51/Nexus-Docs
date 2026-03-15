@@ -1,0 +1,14 @@
+This is a plain text file for testing the Nexus-Docs upload functionality.
+
+It contains multiple lines of text to verify that the file reading works correctly.
+
+The content should be extracted and sent to the analysis engine for processing.
+
+Key points to verify:
+1. File is detected during folder upload
+2. Content is read correctly
+3. Text is stored in the document object
+4. Analysis runs on the content
+5. Document appears in the list after upload
+
+This test ensures that .txt files are properly handled alongside PDFs, images, and media files.

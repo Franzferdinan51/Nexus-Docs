@@ -1,0 +1,15 @@
+{
+  "name": "Test JSON File",
+  "description": "This is a test JSON file for upload verification",
+  "version": "1.0.0",
+  "features": [
+    "JSON parsing",
+    "Text extraction",
+    "Content analysis"
+  ],
+  "metadata": {
+    "created": "2026-03-14",
+    "author": "Test User",
+    "purpose": "Verify folder upload functionality"
+  }
+}
